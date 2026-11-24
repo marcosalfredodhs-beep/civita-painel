@@ -78,14 +78,13 @@ td .nome{display:flex;align-items:center;gap:.7em;font-weight:700}
 .sq{padding:.7em .8em}
 .sq h2{margin:0}
 .sq-topo{display:flex;align-items:flex-end;justify-content:space-between;gap:.6em;margin:.1em .2em .35em}
-.sq-nome{min-width:0} .sq-nome small{color:var(--muted);font-size:.85em}
+.sq-nome{min-width:0} .sq-nome small{color:var(--muted);font-size:.85em} .sq-nome small b{color:#fff}
 .sq-real{text-align:right;line-height:.95;white-space:nowrap}
 .sq-real b{font-size:2.6em;font-weight:800} .sq-real span{font-size:1.35em;font-weight:700;color:var(--muted);margin-left:.1em}
 .sq-real small{display:block;font-size:.7em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:.2em}
 .sq-real.lider b{color:var(--nemo)} .sq-real.ok b{color:var(--ok)}
 .sq-barra{position:relative;height:.55em;margin:0 .2em .6em;background:rgba(255,255,255,.1);border-radius:99px}
 .sq-barra i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--dory),var(--nemo));min-width:.55em}
-.sq-barra b{position:absolute;top:-.25em;width:3px;height:1.05em;background:#fff;border-radius:2px}
 .sq h2 small b{color:#fff}
 .sq table{table-layout:fixed}
 .sq th{font-size:.72em;padding:.45em .3em;text-align:center;line-height:1.15}
@@ -104,7 +103,6 @@ td .nome{display:flex;align-items:center;gap:.7em;font-weight:700}
 .sq .tot{background:rgba(255,255,255,.06);font-weight:800}
 .sq .docs{color:var(--muted)}
 .sq .meta-dia{font-weight:800} .sq .meta-dia small{font-weight:400;opacity:.6;font-size:.75em} .sq .meta-dia.ok{color:var(--ok)}
-.sq .raio{font-style:normal;font-size:.8em;margin-left:.1em}
 .sq tr.sub td:first-child small{font-weight:400;color:var(--muted);font-size:.7em;margin-left:.3em}
 .sq tr.sub td{border-top:2px solid rgba(255,255,255,.35);font-weight:800;background:rgba(255,255,255,.05)}
 .sq .fut{color:rgba(255,255,255,.18)}
@@ -301,7 +299,7 @@ td.premio{white-space:nowrap}
   </section>
 
   <!-- TELA 4 · SQUADS -->
-  <section class="tela" data-titulo="Squads">
+  <section class="tela" data-titulo="Pastas enviadas para validação">
     <div class="squads" id="squads"></div>
   </section>
 </main>
@@ -490,10 +488,11 @@ const PAPEL = { capitao: ["C", "Capitão"], craque: ["★", "Craque"] };
 // nome curto para caber na coluna: "Vinicius Cavalcante" vira "Vinicius C."
 const nomeSquad = (n, lim = 11) => { const [a, b] = primeiroNome(n).split(" "); return b && a.length + b.length > lim ? `${a} ${b[0]}.` : primeiroNome(n); };
 function renderSquads(d) {
-  // Mesma regra do relatório de squads do Vertto: pastas ofertadas ao escritório por dia, contra a meta diária do squad.
+  // Pastas enviadas para validação: 1ª entrada do negócio na etapa "Validação pasta", sem as reprovadas, contra a meta do squad.
   const sq = d.squads || {}, dias = sq.dias || [], eqs = sq.equipes || [];
   if (!eqs.length) { $("#squads").innerHTML = `<div class="painel"><h2>Squads <small>nenhum programa de squads cadastrado</small></h2></div>`; return; }
   const hoje = new Date(agora()).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const iHoje = dias.indexOf(hoje);
   const dd = (x) => x.slice(8, 10) + "/" + x.slice(5, 7);
   const sem = (x) => new Date(x + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
   const soma = (a) => a.reduce((s, x) => s + (+x || 0), 0);
@@ -503,22 +502,20 @@ function renderSquads(d) {
   const capitao = (e) => e.membros.find((m) => m.papel === "capitao");
   const titulo = (e) => `${esc(e.nome)}${capitao(e) ? ` · Capitão ${esc(primeiroNome(capitao(e).nome).split(" ")[0])}` : ""}`;
   const total = (e) => soma((e.por_dia || []).map((x) => x.pastas));
-  // ranking igual ao do Vertto: por total de pastas, empate divide a posição
+  const doDia = (e) => (iHoje >= 0 ? e.por_dia[iHoje].pastas : null);
+  // ranking pela semana; empate divide a posição
   const ord = [...eqs].sort((a, b) => total(b) - total(a));
   const pos = new Map(ord.map((e) => [e, 1 + ord.filter((x) => total(x) > total(e)).length]));
   const tabelas = eqs.map((e) => {
-    const t = total(e);
-    const sub = (e.por_dia || []).map((x, i) => {
-      if (dias[i] > hoje) return `<td class="num"><span class="fut">·</span></td>`;
-      const bateu = x.pastas >= e.meta_dia;
-      return `<td class="num ${cls(dias[i])}"><span class="meta-dia ${bateu ? "ok" : ""}">${int(x.pastas)}<small>/${e.meta_dia}</small></span>${x.gatilho ? `<i class="raio" title="Gatilho batido: a partir daqui a pasta vale em dobro">⚡</i>` : ""}</td>`;
-    }).join("");
+    const t = total(e), h = doDia(e);
+    const sub = (e.por_dia || []).map((x, i) => dias[i] > hoje ? `<td class="num"><span class="fut">·</span></td>`
+      : `<td class="num ${cls(dias[i])}"><span class="meta-dia ${x.pastas >= e.meta_dia ? "ok" : ""}">${int(x.pastas)}<small>/${e.meta_dia}</small></span></td>`).join("");
     return `<div class="painel sq">
       <div class="sq-topo">
-        <div class="sq-nome"><h2>${titulo(e)}</h2><small>${pos.get(e)}º lugar · ${t >= e.minimo_premio ? "prêmio garantido 🎉" : `faltam ${e.minimo_premio - t} para o prêmio`}</small></div>
-        <div class="sq-real ${t >= e.minimo_premio ? "ok" : pos.get(e) === 1 && t ? "lider" : ""}"><b>${int(t)}</b><span>/${e.meta_semana}</span><small>pastas × meta</small></div>
+        <div class="sq-nome"><h2>${titulo(e)}</h2><small>${pos.get(e)}º na semana · <b>${int(t)}</b> de ${e.meta_semana}</small></div>
+        <div class="sq-real ${h != null && h >= e.meta_dia ? "ok" : pos.get(e) === 1 && t ? "lider" : ""}">${h == null ? `<b>${int(t)}</b><span>/${e.meta_semana}</span><small>na semana</small>` : `<b>${int(h)}</b><span>/${e.meta_dia}</span><small>hoje × meta</small>`}</div>
       </div>
-      <div class="sq-barra" title="Mínimo para o prêmio: ${e.minimo_premio}"><i style="width:${Math.min(100, (t / e.meta_semana) * 100)}%"></i><b style="left:${(e.minimo_premio / e.meta_semana) * 100}%"></b></div>
+      <div class="sq-barra" title="Semana: ${t} de ${e.meta_semana}"><i style="width:${Math.min(100, (t / e.meta_semana) * 100)}%"></i></div>
       <table><thead><tr><th>Pessoa</th>${dias.map((x) => `<th class="${cls(x)}">${dd(x)}<small>${x === hoje ? "hoje" : sem(x)}</small></th>`).join("")}<th>Total</th><th>Docs</th></tr></thead>
       <tbody>${e.membros.map((m) => `<tr>
         <td><span class="nome">${avatar({ ...P(m.uid), nome: m.nome })}<span class="tx" title="${esc(m.nome)}">${esc(nomeSquad(m.nome, PAPEL[m.papel] ? 9 : 11))}</span>${PAPEL[m.papel] ? `<span class="papel ${m.papel}" title="${PAPEL[m.papel][1]}">${PAPEL[m.papel][0]}</span>` : ""}</span></td>
@@ -529,11 +526,11 @@ function renderSquads(d) {
       </tbody></table></div>`;
   });
   const p = sq.programa || {};
-  tabelas.push(`<div class="painel placar"><h2>Placar <small>${p.inicio ? `${dd(p.inicio)} a ${dd(p.fim)} · ` : ""}<span class="papel-leg"><i class="c">C</i> capitão <i class="k">★</i> craque ⚡ gatilho</span></small></h2>
-    ${ord.map((e) => { const t = total(e), falta = Math.max(0, e.minimo_premio - t);
+  tabelas.push(`<div class="painel placar"><h2>Placar <small>${p.inicio ? `${dd(p.inicio)} a ${dd(p.fim)} · ` : ""}<span class="papel-leg"><i class="c">C</i> capitão <i class="k">★</i> craque</span></small></h2>
+    ${ord.map((e) => { const t = total(e), h = doDia(e);
       return `<div class="lin ${pos.get(e) === 1 && t ? "p1" : ""}"><span class="pos">${pos.get(e)}º</span>
-      <span class="eq">${titulo(e)}<small>${falta ? `faltam ${falta} para o prêmio (${e.minimo_premio})` : "prêmio garantido 🎉"}</small>
-        <span class="trilho"><i style="width:${Math.min(100, (t / e.meta_semana) * 100)}%"></i><b style="left:${(e.minimo_premio / e.meta_semana) * 100}%"></b></span></span>
+      <span class="eq">${titulo(e)}<small>${h == null ? "" : `hoje ${int(h)} de ${e.meta_dia} · `}semana ${int(t)} de ${e.meta_semana}</small>
+        <span class="trilho"><i style="width:${Math.min(100, (t / e.meta_semana) * 100)}%"></i></span></span>
       <span class="num">${int(t)}<small>de ${e.meta_semana}</small></span></div>`; }).join("")}</div>`);
   $("#squads").innerHTML = tabelas.join("");
 }

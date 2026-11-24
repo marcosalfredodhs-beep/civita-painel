@@ -116,13 +116,15 @@ sel as (
   where s.leads_rec > 0 or s.abertos > 0 or coalesce(pg.vendidas,0) > 0
 ),
 -- ===== Squads: programa vigente (squads_programas), do início ao fim dele =====
--- Base do relatório de squads do Vertto (squads_painel): pastas = 1ª entrada do negócio em "Ofertada ao
--- escritório" dentro do período, lidas de _squads_pastas(), sem as reprovadas; meta_dia, gatilho e prêmio vêm do programa.
+-- Pastas enviadas para validação = 1ª entrada do negócio na etapa "Validação pasta" (pipeline do programa), contada
+-- no dia em que aconteceu e só se cair dentro do período; sem as reprovadas (negócio perdido); creditada ao dono atual
+-- do negócio. Meta diária e semanal vêm do programa (squads_equipes.meta_dia x dias_meta).
+-- Obs.: o relatório de squads do Vertto conta outra etapa ("Ofertada ao escritório", com reprovadas).
 -- Docs = arquivos dos 8 grupos da pasta (pasta_doc_leituras) no período, creditados ao dono do negócio (só informativo).
 -- Uma pessoa pode ter mais de um cadastro (squads_membros).
 -- "materialized": calcula cada CTE uma vez só (sem isso o Postgres refazia a contagem para cada pessoa e dia, ~11 s).
 sq_prog as (
-  select sp.id, sp.nome, sp.inicio, sp.fim, sp.dias_meta, sp.gatilho_pct, sp.premio_pct,
+  select sp.id, sp.nome, sp.inicio, sp.fim, sp.dias_meta, sp.pipeline_id,
          sp.inicio::timestamp at time zone 'America/Sao_Paulo' ini_ts, (sp.fim + 1)::timestamp at time zone 'America/Sao_Paulo' fim_ts
   from squads_programas sp, k
   where sp.org_id = k.org
@@ -144,14 +146,15 @@ sq_prog as (
     and l.created_at >= sp.ini_ts and l.created_at < sp.fim_ts
   group by 1, 2
 ), sq_pa as materialized (
-  -- sem as reprovadas (negócio marcado como perdido depois de ofertado); a posição no dia e o gatilho são
-  -- recalculados sem elas, por isso aqui o total pode ficar abaixo do relatório do Vertto, que ainda conta as reprovadas
-  select x.pessoa_id, x.equipe_id, x.dia, x.posicao = ceil(sp.gatilho_pct * e.meta_dia) gatilho
-  from (select pa.pessoa_id, pa.equipe_id, pa.dia,
-               row_number() over (partition by pa.equipe_id, pa.dia order by pa.momento, pa.deal_id) posicao
-        from sq_prog, _squads_pastas(sq_prog.id) pa join deals d on d.id = pa.deal_id
-        where pa.equipe_id is not null and d.status is distinct from 'lost') x
-  join squads_equipes e on e.id = x.equipe_id, sq_prog sp
+  select pe.id pessoa_id, pe.equipe_id, (f.em at time zone 'America/Sao_Paulo')::date dia
+  from (select h.deal_id, min(h.entered_at) em
+        from deal_stage_history h join stages s on s.id = h.stage_id, sq_prog sp, k
+        where h.org_id = k.org and s.pipeline_id = sp.pipeline_id and s.name = 'Validação pasta'
+        group by 1) f
+  join sq_prog sp on f.em >= sp.ini_ts and f.em < sp.fim_ts
+  join deals d on d.id = f.deal_id and d.deleted_at is null and d.status is distinct from 'lost'
+  join squads_membros m on m.programa_id = sp.id and m.user_id = d.owner_id
+  join sq_pes pe on pe.id = m.pessoa_id
 ),
 -- ===== Roleta: tabelas roleta_pastas / roleta_giros (alimentadas por roleta_sincronizar via pg_cron) =====
 giros as (
@@ -223,12 +226,9 @@ select json_build_object(
     'dias', (select coalesce(json_agg(dia order by dia), '[]') from sq_dias),
     'equipes', (select coalesce(json_agg(json_build_object(
         'nome', e.nome, 'meta_dia', e.meta_dia,
-        'pos_gatilho', ceil(sp.gatilho_pct * e.meta_dia)::int,
         'meta_semana', e.meta_dia * sp.dias_meta,
-        'minimo_premio', ceil(sp.premio_pct * e.meta_dia * sp.dias_meta)::int,
         'por_dia', (select json_agg(json_build_object(
-            'pastas', (select count(*) from sq_pa a where a.equipe_id = e.id and a.dia = sd.dia),
-            'gatilho', exists (select 1 from sq_pa a where a.equipe_id = e.id and a.dia = sd.dia and a.gatilho)) order by sd.dia) from sq_dias sd),
+            'pastas', (select count(*) from sq_pa a where a.equipe_id = e.id and a.dia = sd.dia)) order by sd.dia) from sq_dias sd),
         'membros', (select coalesce(json_agg(json_build_object(
             'nome', pe.nome, 'papel', pe.papel, 'uid', pe.uid,
             'dias', (select json_agg((select count(*) from sq_pa a where a.pessoa_id = pe.id and a.dia = sd.dia) order by sd.dia) from sq_dias sd),
