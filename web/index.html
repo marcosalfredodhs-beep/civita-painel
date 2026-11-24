@@ -16,12 +16,14 @@
   --muted:rgba(255,255,255,.62); --ok:#3DDC97; --warn:#FFC24B;
 }
 *{box-sizing:border-box;margin:0;padding:0}
+/* escala única: o painel foi desenhado para 1920x1080 e cresce junto com a tela (TV 4K, 65") */
+html{font-size:min(.9vw,1.6vh)}
 html,body{height:100%}
-body{background:radial-gradient(1200px 700px at 85% -10%,#0B2A86 0%,transparent 60%),radial-gradient(900px 600px at -10% 110%,#3A1A0A 0%,transparent 55%),var(--bg);
-  color:var(--white);font-family:"LINE Seed JP",system-ui,sans-serif;overflow:hidden;font-size:clamp(12px,0.9vw,20px)}
+body{background:radial-gradient(69.4rem 40.5rem at 85% -10%,#0B2A86 0%,transparent 60%),radial-gradient(52rem 34.7rem at -10% 110%,#3A1A0A 0%,transparent 55%),var(--bg);
+  color:var(--white);font-family:"LINE Seed JP",system-ui,sans-serif;overflow:hidden;font-size:max(1rem,12px)}
 .num{font-variant-numeric:tabular-nums}
 header{display:flex;align-items:center;gap:1.4em;padding:1em 1.6em .6em}
-.logo{background:#fff;border-radius:14px;padding:.45em .9em;display:flex;align-items:center}
+.logo{background:#fff;border-radius:.81rem;padding:.45em .9em;display:flex;align-items:center}
 .logo img{height:2.4em;display:block}
 .titulo{flex:1;min-width:0}
 .titulo h1{font-size:1.9em;font-weight:800;letter-spacing:-.01em;line-height:1.1}
@@ -42,7 +44,7 @@ section.tela.on{display:flex;animation:entra .5s ease}
 
 .kpis{display:grid;gap:1em}
 .kpis.k4{grid-template-columns:repeat(4,1fr)} .kpis.k5{grid-template-columns:repeat(5,1fr)}
-.kpi{background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:18px;padding:1em 1.2em;position:relative;overflow:hidden}
+.kpi{background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:1.04rem;padding:1em 1.2em;position:relative;overflow:hidden}
 .kpi .rot{color:var(--muted);font-weight:700;font-size:.95em;text-transform:uppercase;letter-spacing:.04em}
 .kpi .val{font-size:3.1em;font-weight:800;line-height:1.05;margin-top:.15em}
 .kpi .sec{margin-top:.2em;font-size:1.05em;color:var(--muted)} .kpi .sec b{color:#fff}
@@ -56,7 +58,7 @@ section.tela.on{display:flex;animation:entra .5s ease}
 .kpi.laranja .meta .trilho i{background:#fff}
 .meta .txt{font-size:.85em;color:var(--muted);margin-top:.3em}
 
-.painel{flex:1;min-height:0;background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:18px;padding:.8em 1em;display:flex;flex-direction:column}
+.painel{flex:1;min-height:0;background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:1.04rem;padding:.8em 1em;display:flex;flex-direction:column}
 .painel h2{font-size:1.1em;font-weight:800;margin:.2em .3em .6em;display:flex;justify-content:space-between;align-items:baseline}
 .painel h2 small{color:var(--muted);font-weight:400;font-size:.8em}
 .rolagem{flex:1;min-height:0;overflow:hidden;position:relative}
@@ -77,13 +79,13 @@ td .nome{display:flex;align-items:center;gap:.7em;font-weight:700}
 .etapa{display:grid;grid-template-columns:14em 1fr 6em;align-items:center;gap:1em}
 .etapa .nm{font-weight:700;font-size:1.05em}
 .etapa .nm small{display:block;color:var(--muted);font-weight:400;font-size:.8em}
-.etapa .bar{height:2.6em;border-radius:12px;background:rgba(255,255,255,.06);overflow:hidden;position:relative}
-.etapa .bar i{display:flex;align-items:center;justify-content:flex-end;padding-right:.7em;height:100%;border-radius:12px;background:linear-gradient(90deg,var(--dory),#2E74FF);font-weight:800;font-size:1.25em;min-width:3.2em;transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+.etapa .bar{height:2.6em;border-radius:.69rem;background:rgba(255,255,255,.06);overflow:hidden;position:relative}
+.etapa .bar i{display:flex;align-items:center;justify-content:flex-end;padding-right:.7em;height:100%;border-radius:.69rem;background:linear-gradient(90deg,var(--dory),#2E74FF);font-weight:800;font-size:1.25em;min-width:3.2em;transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
 .etapa.quente .bar i{background:linear-gradient(90deg,#FF8A47,var(--nemo))}
 .etapa .cv{color:var(--muted);text-align:right;font-size:.95em}
 .etapa .cv b{color:#fff;font-size:1.1em}
 .feed{display:flex;flex-direction:column;gap:.5em;overflow:hidden}
-.ev{display:flex;gap:.7em;align-items:center;padding:.55em .7em;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+.ev{display:flex;gap:.7em;align-items:center;padding:.55em .7em;border-radius:.69rem;background:rgba(255,255,255,.04);border:1px solid var(--line)}
 .ev .ic{font-size:1.4em;width:1.6em;text-align:center}
 .ev .tx{flex:1;min-width:0;font-size:.98em}
 .ev .tx b{font-weight:800}
@@ -99,7 +101,7 @@ td .nome{display:flex;align-items:center;gap:.7em;font-weight:700}
 span.foto{font-size:1.9em !important;width:3.3em !important;height:3.3em !important;margin-bottom:-1.05em !important}
 .degrau.p1 .foto{width:8em;height:8em;border-color:var(--nemo);box-shadow:0 0 40px rgba(253,103,23,.6)}
 .degrau.p1 span.foto{width:4.2em !important;height:4.2em !important}
-.degrau .bloco{width:100%;border-radius:16px 16px 6px 6px;background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);text-align:center;padding:2.6em .6em .8em}
+.degrau .bloco{width:100%;border-radius:.93rem .93rem .35rem .35rem;background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);text-align:center;padding:2.6em .6em .8em}
 td.premio{white-space:nowrap}
 .degrau.p1 .bloco{background:linear-gradient(180deg,#FF7A2E,var(--nemo));height:19em}
 .degrau.p2 .bloco{height:15em} .degrau.p3 .bloco{height:12em}
@@ -143,7 +145,7 @@ td.premio{white-space:nowrap}
 /* toasts */
 .cabecinha{position:fixed;left:0;top:0;z-index:60;pointer-events:none;filter:drop-shadow(0 4px 6px rgba(0,0,0,.35))}
 #toasts{position:fixed;right:1.4em;bottom:1.4em;display:flex;flex-direction:column-reverse;gap:.6em;z-index:50;width:30em}
-.toast{background:#fff;color:#0A1D57;border-radius:16px;padding:.9em 1.1em;display:flex;gap:.8em;align-items:center;box-shadow:0 20px 50px rgba(0,0,0,.5);border-left:8px solid var(--dory);animation:toastIn .5s cubic-bezier(.2,1.4,.4,1)}
+.toast{background:#fff;color:#0A1D57;border-radius:.93rem;padding:.9em 1.1em;display:flex;gap:.8em;align-items:center;box-shadow:0 20px 50px rgba(0,0,0,.5);border-left:8px solid var(--dory);animation:toastIn .5s cubic-bezier(.2,1.4,.4,1)}
 .toast.grande{border-left-color:var(--nemo);transform-origin:right}
 .toast .ic{font-size:2em}
 .toast{font-size:1.15em;font-weight:400}
