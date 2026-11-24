@@ -169,6 +169,7 @@ td.premio{white-space:nowrap}
 #ativar img{width:7em;background:#fff;border-radius:50%;padding:.8em;margin-bottom:1em}
 #ativar h2{font-size:2em;font-weight:800}
 #ativar p{color:var(--muted);margin-top:.4em}
+#avisoToque{position:fixed;left:50%;bottom:1.2em;transform:translateX(-50%);z-index:100;background:rgba(4,14,46,.92);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:.5em 1.2em;font-size:1em;cursor:pointer}
 .aviso{font-size:.8em;color:var(--warn)}
 .kpi .val .aviso{font-size:.3em;font-weight:700;margin-top:.3em}
 .vazio{color:var(--muted);text-align:center;padding:2em}
@@ -572,13 +573,17 @@ function toast(a) {
   else if (nv === 2) { SOM.chime(); confete(2); cabecinhas(22); } else { SOM.fanfarra(); confete(2); cabecinhas(32); }
 }
 async function comemorar(novosAlertas, novosGiros) {
-  for (const a of novosAlertas.sort((x, y) => new Date(x.ts) - new Date(y.ts))) { toast(a); await new Promise((r) => setTimeout(r, 1800)); }
-  for (const g of novosGiros.sort((x, y) => new Date(x.ts) - new Date(y.ts))) { await girar(g); await new Promise((r) => setTimeout(r, 5000)); }
+  comemorando = true;
+  try {
+    for (const a of novosAlertas.sort((x, y) => new Date(x.ts) - new Date(y.ts))) { toast(a); await new Promise((r) => setTimeout(r, 1800)); }
+    for (const g of novosGiros.sort((x, y) => new Date(x.ts) - new Date(y.ts))) { await girar(g); await new Promise((r) => setTimeout(r, 5000)); }
+  } finally { comemorando = false; }
 }
 
 // ---------- ciclo de dados ----------
 let proxima = 0;
 async function carregar() {
+  if (await consultarServidor() && !girando && !comemorando && recarregar()) return;
   try {
     const r = await fetch(CONFIG.API, { headers: { Authorization: "Bearer " + CONFIG.KEY, apikey: CONFIG.KEY }, cache: "no-store" });
     if (!r.ok) throw new Error("HTTP " + r.status);
@@ -621,17 +626,59 @@ const proximaMarca = () => {
   return Math.floor(t / p) * p + p - BRT;
 };
 const hhmm = (ts) => new Date(ts).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
-async function acertarRelogio() {
+// A cada atualização, um HEAD na própria página acerta o relógio (cabeçalho Date) e lê a versão
+// publicada (ETag). Se a versão mudou, devolve true para o painel se recarregar sozinho.
+let versao = null;
+async function consultarServidor() {
   try {
     const t0 = Date.now();
-    const r = await fetch(location.pathname + "?relogio=" + t0, { method: "HEAD", cache: "no-store" });
+    const r = await fetch(location.pathname + "?servidor=" + t0, { method: "HEAD", cache: "no-store" });
     const srv = Date.parse(r.headers.get("Date"));
     // o cabeçalho tem precisão de 1 s: soma meio segundo e o tempo de ida
     if (isFinite(srv)) desvio = srv + 500 + (Date.now() - t0) / 2 - Date.now();
-  } catch (e) { console.warn("relógio do servidor indisponível, usando o do aparelho", e); }
+    const v = r.ok ? (r.headers.get("ETag") || r.headers.get("Last-Modified") || "").replace(/^W\//, "") : "";
+    if (!v) return false;
+    if (versao === null) versao = v;
+    return v !== versao;
+  } catch (e) { console.warn("servidor da página indisponível, usando o relógio do aparelho", e); return false; }
 }
-acertarRelogio().then(() => { if (proxima && proxima !== Infinity) proxima = proximaMarca(); });
-setInterval(acertarRelogio, 30 * 60e3);
+
+// ---------- recarga automática quando sai versão nova ----------
+// Guarda a tela atual, a pausa e a tela cheia, recarrega e, na volta, pula a tela "Toque para iniciar".
+let comemorando = false;
+const RECARGA = "civ_recarga";
+function lerRecarga() { try { return JSON.parse(sessionStorage.getItem(RECARGA)) || null; } catch { return null; } }
+function recarregar() {
+  const ant = lerRecarga();
+  if (ant && Date.now() - ant.em < 10 * 60e3) return false; // no máximo 1 recarga a cada 10 min
+  try { sessionStorage.setItem(RECARGA, JSON.stringify({ em: Date.now(), tela: atual, pausado, cheia: !!document.fullscreenElement })); } catch { return false; }
+  location.reload();
+  return true;
+}
+function voltarDeRecarga() {
+  const r = lerRecarga();
+  if (!r || Date.now() - r.em > 2 * 60e3) return false;
+  mostrar(r.tela || 0);
+  if (r.pausado) $("#btnPausa").click();
+  $("#ativar")?.remove();
+  try { ctx().resume?.(); } catch {}
+  // se o navegador não deixou o som voltar sozinho (ou a tela cheia caiu), mostra um aviso discreto
+  setTimeout(() => {
+    const semSom = somLigado && audio && audio.state !== "running";
+    const semTela = r.cheia && !document.fullscreenElement;
+    if (!semSom && !semTela) return;
+    const av = document.createElement("div");
+    av.id = "avisoToque";
+    av.textContent = semSom && semTela ? "Toque na tela para ligar o som e voltar à tela cheia" : semSom ? "Toque na tela para ligar o som" : "Toque na tela para voltar à tela cheia";
+    document.body.append(av);
+    document.addEventListener("click", () => {
+      ctx().resume?.();
+      if (semTela) document.documentElement.requestFullscreen?.().catch(() => {});
+      av.remove();
+    }, { once: true });
+  }, 800);
+  return true;
+}
 
 setInterval(() => {
   const s = Math.max(0, Math.round((proxima - agora()) / 1000));
@@ -656,7 +703,7 @@ $("#btnGirar").onclick = async () => {
   $("#btnGirar").disabled = false;
 };
 
-desenhaRoda(); mostrar(0); requestAnimationFrame(loopRotacao); carregar();
+desenhaRoda(); if (!voltarDeRecarga()) mostrar(0); requestAnimationFrame(loopRotacao); carregar();
 if (new URLSearchParams(location.search).get("teste")) setTimeout(() => window.testar(), 3000);
 </script>
 </body>
