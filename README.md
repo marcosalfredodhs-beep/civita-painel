@@ -52,10 +52,7 @@ Cada evento novo das últimas 48 h vira aviso com foto da pessoa, som, confete e
 
 ## Deploy
 
-```bash
-# página (dentro de web/)
-npx vercel deploy --prod --yes --name civita-painel
-```
+A página publica sozinha: a Vercel (projeto `civita-painel`) está ligada a este repositório e cada push na branch `main` vai ao ar em dash.atticus.ag em cerca de 1 minuto (Root Directory = `web`). Outras branches geram um link de prévia.
 
 A Edge Function é publicada no projeto Supabase `thqrvqqdowfiunffhclj` com o nome `civita-dashboard` (`index.ts` + `query.sql.ts`).
 Para a frequência da Meta, cadastrar o secret `META_TOKEN` nas Edge Functions do projeto.
