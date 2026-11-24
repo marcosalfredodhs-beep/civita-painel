@@ -1,0 +1,12 @@
+# Vercel (ids internos do projeto)
+.vercel/
+web/.vercel/
+
+# Fotos dos colaboradores e arquivos operacionais (ficam só no computador / CRM)
+fotos-time-recortadas/
+avatares-antigos-rollback.sql
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
