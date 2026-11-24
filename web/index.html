@@ -605,12 +605,40 @@ async function carregar() {
   } catch (e) {
     console.error(e); $("#dot").style.background = "var(--warn)";
   }
-  proxima = Date.now() + CONFIG.ATUALIZA_MS;
+  ultima = agora();
+  proxima = proximaMarca();
 }
+
+// ---------- relógio de Brasília ----------
+// As atualizações caem em horários redondos de Brasília (padrão a cada 5 min: 18:00, 18:05, 18:10...),
+// iguais em todas as TVs. O relógio vem do cabeçalho Date do servidor da página, então uma TV com a
+// hora errada continua sincronizada.
+const BRT = -3 * 3600e3; // Brasília é UTC-3 o ano todo (sem horário de verão desde 2019)
+let desvio = 0, ultima = 0;
+const agora = () => Date.now() + desvio;
+const proximaMarca = () => {
+  const p = CONFIG.ATUALIZA_MS, t = agora() + BRT;
+  return Math.floor(t / p) * p + p - BRT;
+};
+const hhmm = (ts) => new Date(ts).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+async function acertarRelogio() {
+  try {
+    const t0 = Date.now();
+    const r = await fetch(location.pathname + "?relogio=" + t0, { method: "HEAD", cache: "no-store" });
+    const srv = Date.parse(r.headers.get("Date"));
+    // o cabeçalho tem precisão de 1 s: soma meio segundo e o tempo de ida
+    if (isFinite(srv)) desvio = srv + 500 + (Date.now() - t0) / 2 - Date.now();
+  } catch (e) { console.warn("relógio do servidor indisponível, usando o do aparelho", e); }
+}
+acertarRelogio().then(() => { if (proxima && proxima !== Infinity) proxima = proximaMarca(); });
+setInterval(acertarRelogio, 30 * 60e3);
+
 setInterval(() => {
-  const s = Math.max(0, Math.round((proxima - Date.now()) / 1000));
-  $("#atualizado").textContent = D ? `Atualiza em ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "Conectando…";
-  if (proxima && Date.now() >= proxima) { proxima = Infinity; carregar(); }
+  const s = Math.max(0, Math.round((proxima - agora()) / 1000));
+  $("#atualizado").textContent = D
+    ? `Atualizado às ${hhmm(ultima)} · próxima às ${hhmm(proxima)} (${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")})`
+    : "Conectando…";
+  if (proxima && agora() >= proxima) { proxima = Infinity; carregar(); }
 }, 1000);
 
 
