@@ -115,6 +115,44 @@ sel as (
   left join sel_pag pg on pg.uid = s.uid
   where s.leads_rec > 0 or s.abertos > 0 or coalesce(pg.vendidas,0) > 0
 ),
+-- ===== Squads: programa vigente (squads_programas), do início ao fim dele =====
+-- Base do relatório de squads do Vertto (squads_painel): pastas = 1ª entrada do negócio em "Ofertada ao
+-- escritório" dentro do período, lidas de _squads_pastas(), sem as reprovadas; meta_dia, gatilho e prêmio vêm do programa.
+-- Docs = arquivos dos 8 grupos da pasta (pasta_doc_leituras) no período, creditados ao dono do negócio (só informativo).
+-- Uma pessoa pode ter mais de um cadastro (squads_membros).
+-- "materialized": calcula cada CTE uma vez só (sem isso o Postgres refazia a contagem para cada pessoa e dia, ~11 s).
+sq_prog as (
+  select sp.id, sp.nome, sp.inicio, sp.fim, sp.dias_meta, sp.gatilho_pct, sp.premio_pct,
+         sp.inicio::timestamp at time zone 'America/Sao_Paulo' ini_ts, (sp.fim + 1)::timestamp at time zone 'America/Sao_Paulo' fim_ts
+  from squads_programas sp, k
+  where sp.org_id = k.org
+  order by ((now() at time zone 'America/Sao_Paulo')::date between sp.inicio and sp.fim) desc,
+           (sp.inicio <= (now() at time zone 'America/Sao_Paulo')::date) desc,
+           case when sp.inicio <= (now() at time zone 'America/Sao_Paulo')::date then sp.inicio end desc nulls last, sp.inicio
+  limit 1
+), sq_dias as materialized (
+  select d::date dia from sq_prog, generate_series(sq_prog.inicio, sq_prog.fim, interval '1 day') d
+), sq_pes as materialized (
+  select pe.id, pe.equipe_id, pe.nome, pe.papel,
+         (select array_agg(m.user_id) from squads_membros m where m.pessoa_id = pe.id) uids,
+         (select m.user_id from squads_membros m where m.pessoa_id = pe.id order by m.created_at limit 1) uid
+  from squads_pessoas pe join sq_prog sp on sp.id = pe.programa_id
+), sq_arq as materialized (
+  select c.owner_id uid, (l.created_at at time zone 'America/Sao_Paulo')::date dia, count(*) n
+  from pasta_doc_leituras l join cd c on c.id = l.deal_id, sq_prog sp, k
+  where l.org_id = k.org and l.grupo is not null and l.grupo not in ('Kit Contratos','Outros anexos','Anexos avulsos')
+    and l.created_at >= sp.ini_ts and l.created_at < sp.fim_ts
+  group by 1, 2
+), sq_pa as materialized (
+  -- sem as reprovadas (negócio marcado como perdido depois de ofertado); a posição no dia e o gatilho são
+  -- recalculados sem elas, por isso aqui o total pode ficar abaixo do relatório do Vertto, que ainda conta as reprovadas
+  select x.pessoa_id, x.equipe_id, x.dia, x.posicao = ceil(sp.gatilho_pct * e.meta_dia) gatilho
+  from (select pa.pessoa_id, pa.equipe_id, pa.dia,
+               row_number() over (partition by pa.equipe_id, pa.dia order by pa.momento, pa.deal_id) posicao
+        from sq_prog, _squads_pastas(sq_prog.id) pa join deals d on d.id = pa.deal_id
+        where pa.equipe_id is not null and d.status is distinct from 'lost') x
+  join squads_equipes e on e.id = x.equipe_id, sq_prog sp
+),
 -- ===== Roleta: tabelas roleta_pastas / roleta_giros (alimentadas por roleta_sincronizar via pg_cron) =====
 giros as (
   select g.id, g.user_id uid, g.ultima_pasta_paga_em ts, g.premio_id, g.premio_nome, g.semana, g.numero, g.entregue
@@ -180,9 +218,29 @@ select json_build_object(
   'premios', (select coalesce(json_agg(json_build_object('id', c.id, 'nome', c.nome, 'peso', c.peso, 'min', c.pastas_minimas) order by c.ordem, c.nome), '[]')
               from roleta_premios_catalogo c, k where c.org_id = k.org and c.ativo),
   'rumo', (select coalesce(json_object_agg(uid, n), '{}') from rumo),
+  'squads', json_build_object(
+    'programa', (select json_build_object('nome', nome, 'inicio', inicio, 'fim', fim, 'dias_meta', dias_meta) from sq_prog),
+    'dias', (select coalesce(json_agg(dia order by dia), '[]') from sq_dias),
+    'equipes', (select coalesce(json_agg(json_build_object(
+        'nome', e.nome, 'meta_dia', e.meta_dia,
+        'pos_gatilho', ceil(sp.gatilho_pct * e.meta_dia)::int,
+        'meta_semana', e.meta_dia * sp.dias_meta,
+        'minimo_premio', ceil(sp.premio_pct * e.meta_dia * sp.dias_meta)::int,
+        'por_dia', (select json_agg(json_build_object(
+            'pastas', (select count(*) from sq_pa a where a.equipe_id = e.id and a.dia = sd.dia),
+            'gatilho', exists (select 1 from sq_pa a where a.equipe_id = e.id and a.dia = sd.dia and a.gatilho)) order by sd.dia) from sq_dias sd),
+        'membros', (select coalesce(json_agg(json_build_object(
+            'nome', pe.nome, 'papel', pe.papel, 'uid', pe.uid,
+            'dias', (select json_agg((select count(*) from sq_pa a where a.pessoa_id = pe.id and a.dia = sd.dia) order by sd.dia) from sq_dias sd),
+            'docs', coalesce((select sum(a.n) from sq_arq a where a.uid = any(pe.uids)), 0))
+          order by case pe.papel when 'capitao' then 0 when 'craque' then 1 else 2 end, pe.nome), '[]')
+          from sq_pes pe where pe.equipe_id = e.id))
+        order by e.ordem, e.nome), '[]')
+      from squads_equipes e join sq_prog sp on sp.id = e.programa_id)
+  ),
   'alertas', (select coalesce(json_agg(json_build_object('id', a.id, 'ts', a.ts, 'tipo', a.tipo, 'uid', a.uid, 'detalhe', a.detalhe, 'valor', a.valor) order by a.ts desc), '[]')
               from (select * from alertas order by ts desc limit 60) a),
   'pessoas', (select coalesce(json_object_agg(pr.user_id, json_build_object('nome', pr.full_name, 'foto', pr.avatar_url)), '{}')
-              from profiles pr where pr.user_id in (select uid from sellers union select uid from alertas union select uid from giros union select uid from rumo))
+              from profiles pr where pr.user_id in (select uid from sellers union select uid from alertas union select uid from giros union select uid from rumo union select uid from sq_pes))
 ) as data
 `;

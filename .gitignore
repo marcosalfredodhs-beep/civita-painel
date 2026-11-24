@@ -10,3 +10,6 @@ avatares-antigos-rollback.sql
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Supabase CLI (arquivos locais do deploy)
+supabase/.temp/
