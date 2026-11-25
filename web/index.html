@@ -74,6 +74,31 @@ td .nome{display:flex;align-items:center;gap:.7em;font-weight:700}
 .pill{display:inline-block;padding:.1em .55em;border-radius:99px;background:rgba(61,220,151,.15);color:var(--ok);font-weight:800}
 
 /* Squads: 5 tabelas + placar, em grade 3x2 */
+/* campanha do dia */
+.cp{flex:1;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:1em}
+.cp-hero{background:linear-gradient(135deg,var(--card2),var(--card) 55%,#2A1A3A);border:1px solid var(--line);border-radius:1.04rem;padding:1.8em 2.2em;display:grid;grid-template-columns:1.15fr 1fr;gap:2.4em;align-items:center;position:relative;overflow:hidden}
+.cp-hero.batida{background:linear-gradient(135deg,#0E5A43,#0A3D33 60%,var(--card));border-color:rgba(61,220,151,.5)}
+.cp-tag{display:inline-block;background:var(--nemo);color:#fff;font-weight:800;font-size:.95em;letter-spacing:.08em;text-transform:uppercase;padding:.35em .9em;border-radius:999px}
+.cp-hero.batida .cp-tag{background:var(--ok);color:#04261A}
+.cp-hero h2{font-size:3em;font-weight:800;line-height:1.08;letter-spacing:-.015em;margin:.45em 0 .35em}
+.cp-hero h2 em{font-style:normal;color:var(--nemo)} .cp-hero.batida h2 em{color:var(--ok)}
+.cp-regra{color:var(--muted);font-size:1.25em;line-height:1.35}
+.cp-relogio{margin-top:1.1em;display:flex;align-items:baseline;gap:.6em;font-size:1.25em;color:var(--muted)}
+.cp-relogio b{font-size:1.9em;color:#fff;font-weight:800}
+.cp-placar{text-align:center}
+.cp-num{line-height:.9;white-space:nowrap}
+.cp-num b{font-size:11em;font-weight:800;letter-spacing:-.04em} .cp-num span{font-size:4.4em;font-weight:800;color:var(--muted)}
+.cp-hero.batida .cp-num b{color:var(--ok)}
+.cp-placar .leg{font-size:1.35em;font-weight:700;margin-top:.3em}
+.cp-blocos{display:grid;grid-template-columns:repeat(12,1fr);gap:.4em;margin:1.2em 0 .7em}
+.cp-blocos i{height:1.7em;border-radius:.35rem;background:rgba(255,255,255,.1)}
+.cp-blocos i.on{background:linear-gradient(180deg,#FF8A45,var(--nemo));box-shadow:0 0 14px rgba(253,103,23,.55)}
+.cp-hero.batida .cp-blocos i.on{background:var(--ok);box-shadow:0 0 14px rgba(61,220,151,.5)}
+.cp-falta{font-size:1.4em;color:var(--muted)} .cp-falta b{color:#fff}
+.cp-funil{display:grid;grid-template-columns:repeat(3,1fr);gap:2.2em}
+.cp-funil .kpi{overflow:visible}
+.cp-funil .kpi:not(:last-child)::after{content:"→";position:absolute;right:-.85em;top:50%;transform:translateY(-50%);font-size:2em;color:var(--muted);font-weight:800}
+.cp-funil .val{font-size:4.2em}
 .squads{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,minmax(0,1fr));gap:1em}
 .sq{padding:.7em .8em}
 .sq h2{margin:0}
@@ -232,6 +257,7 @@ td.premio{white-space:nowrap}
     <button data-t="1">Vendas</button>
     <button data-t="2">Pódio &amp; Roleta</button>
     <button data-t="3">Squads</button>
+    <button data-t="4" id="navCampanha">Campanha do dia</button>
   </nav>
   <div class="status">
     <div><span class="dot" id="dot"></span><span id="atualizado">—</span></div>
@@ -302,6 +328,30 @@ td.premio{white-space:nowrap}
   <section class="tela" data-titulo="Pastas enviadas para validação">
     <div class="squads" id="squads"></div>
   </section>
+  <!-- TELA 5 · CAMPANHA DO DIA (some sozinha depois de CONFIG.CAMPANHA.ate) -->
+  <section class="tela" id="telaCampanha" data-titulo="Campanha do dia · comissão em dobro">
+    <div class="cp">
+      <div class="cp-hero" id="cpHero">
+        <div>
+          <span class="cp-tag" id="cpTag">Campanha do dia · só hoje</span>
+          <h2 id="cpTitulo">Bateu <em>12 pastas aceitas</em> pelos escritórios hoje, a comissão de todas as pastas dobra</h2>
+          <div class="cp-regra">Conta toda pasta ofertada e aceita por um escritório até as 23:59 de hoje.</div>
+          <div class="cp-relogio">Termina em <b class="num" id="cpRelogio">—</b></div>
+        </div>
+        <div class="cp-placar">
+          <div class="cp-num num"><b id="cpAceitas">0</b><span id="cpMeta">/12</span></div>
+          <div class="leg">pastas aceitas pelos escritórios</div>
+          <div class="cp-blocos" id="cpBlocos"></div>
+          <div class="cp-falta" id="cpFalta">—</div>
+        </div>
+      </div>
+      <div class="cp-funil">
+        <div class="kpi"><div class="rot">Enviadas para validação</div><div class="val num" id="cpValidacao">0</div><div class="sec">pastas que entraram em Validação pasta hoje</div></div>
+        <div class="kpi"><div class="rot">Enviadas para oferta</div><div class="val num" id="cpOferta">0</div><div class="sec">pastas ofertadas aos escritórios hoje</div></div>
+        <div class="kpi laranja"><div class="rot">Ofertas aprovadas</div><div class="val num" id="cpAprovadas">0</div><div class="sec">aceitas pelos escritórios hoje</div></div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <div id="toasts"></div>
@@ -320,6 +370,8 @@ const CONFIG = {
   // Prêmios da roleta vêm da tabela roleta_premios_catalogo (sorteio feito no banco, em roleta_giros)
   // PROVISÓRIO: metas semanais (null = sem meta). Vão passar a vir do CRM.
   METAS: { sql: null, docs: null, produzidas: null, vendidas: null },
+  // Campanha do dia: a aba aparece até "ate" (horário de Brasília) e depois some da rotação sozinha.
+  CAMPANHA: { ate: "2026-11-25T23:59:59-03:00", meta: 12 },
 };
 // =================================================
 
@@ -408,14 +460,19 @@ function cabecinhas(qtd = 12) {
 // ---------- navegação e rotação ----------
 const telas = [...document.querySelectorAll("section.tela")];
 let atual = 0, pausado = false, rotIni = Date.now(), bloqueio = 0;
-function mostrar(i) {
-  atual = (i + telas.length) % telas.length; rotIni = Date.now();
+$("#telaCampanha").dataset.ate = CONFIG.CAMPANHA.ate;
+// tela com data-ate (campanha) só entra na rotação até esse horário
+const visivel = (k) => !telas[k].dataset.ate || Date.now() + desvio <= Date.parse(telas[k].dataset.ate);
+function mostrar(i, dir = 1) {
+  let n = (i + telas.length) % telas.length;
+  for (let g = 0; g < telas.length && !visivel(n); g++) n = (n + dir + telas.length) % telas.length;
+  atual = n; rotIni = Date.now();
   telas.forEach((t, k) => t.classList.toggle("on", k === atual));
-  document.querySelectorAll("#nav button").forEach((b, k) => b.classList.toggle("on", k === atual));
+  document.querySelectorAll("#nav button").forEach((b, k) => { b.classList.toggle("on", k === atual); b.hidden = !visivel(k); });
   $("#tituloTela").innerHTML = telas[atual].dataset.titulo;
 }
 $("#nav").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) mostrar(+b.dataset.t); });
-document.addEventListener("keydown", (e) => { if (/^[1-4]$/.test(e.key)) mostrar(+e.key - 1); if (e.key === "ArrowRight") mostrar(atual + 1); if (e.key === "ArrowLeft") mostrar(atual - 1); });
+document.addEventListener("keydown", (e) => { if (/^[1-5]$/.test(e.key)) mostrar(+e.key - 1); if (e.key === "ArrowRight") mostrar(atual + 1); if (e.key === "ArrowLeft") mostrar(atual - 1, -1); });
 $("#btnPausa").onclick = () => { pausado = !pausado; $("#btnPausa").textContent = pausado ? "▶ Rodar" : "⏸ Pausar"; rotIni = Date.now(); };
 $("#btnSom").onclick = () => { somLigado = !somLigado; store.set("civ_som", somLigado); $("#btnSom").textContent = somLigado ? "🔊 Som ligado" : "🔇 Som desligado"; };
 $("#btnSom").textContent = somLigado ? "🔊 Som ligado" : "🔇 Som desligado";
@@ -487,6 +544,35 @@ function renderVendas(d) {
 const PAPEL = { capitao: ["C", "Capitão"], craque: ["★", "Craque"] };
 // nome curto para caber na coluna: "Vinicius Cavalcante" vira "Vinicius C."
 const nomeSquad = (n, lim = 11) => { const [a, b] = primeiroNome(n).split(" "); return b && a.length + b.length > lim ? `${a} ${b[0]}.` : primeiroNome(n); };
+// ---------- campanha do dia ----------
+function renderCampanha(d) {
+  const c = d.campanha || {}, meta = CONFIG.CAMPANHA.meta, n = c.aceitas || 0, batida = n >= meta;
+  $("#cpValidacao").textContent = int(c.validacao); $("#cpOferta").textContent = int(c.oferta);
+  $("#cpAprovadas").textContent = int(n); $("#cpAceitas").textContent = int(n); $("#cpMeta").textContent = "/" + meta;
+  $("#cpBlocos").innerHTML = Array.from({ length: meta }, (_, k) => `<i class="${k < n ? "on" : ""}"></i>`).join("");
+  $("#cpHero").classList.toggle("batida", batida);
+  $("#cpTag").textContent = batida ? "Meta batida · comissão em dobro" : "Campanha do dia · só hoje";
+  $("#cpTitulo").innerHTML = batida ? `Meta batida! <em>Comissão em dobro</em> em todas as pastas de hoje`
+    : `Bateu <em>${meta} pastas aceitas</em> pelos escritórios hoje, a comissão de todas as pastas dobra`;
+  $("#cpFalta").innerHTML = batida ? (n > meta ? `<b>${n - meta}</b> acima da meta` : "Meta completa") : `Faltam <b>${meta - n}</b> ${meta - n === 1 ? "pasta" : "pastas"}`;
+  // comemora quando a meta é batida com o painel aberto (de "abaixo da meta" para "meta batida"), uma vez por dia
+  const chave = "cp:" + (c.dia || "");
+  if (batida && cpUltimo !== null && cpUltimo < meta && visivel(telas.indexOf($("#telaCampanha"))) && store.get("civ_cp_meta", null) !== chave) {
+    store.set("civ_cp_meta", chave);
+    mostrar(telas.indexOf($("#telaCampanha"))); bloqueio = Date.now() + 15000;
+    SOM.premio(); confete(3); setTimeout(() => falar("Meta da campanha batida! Comissão em dobro!", VOZES.campanha_meta ? "vozes/" + VOZES.campanha_meta : null), 900);
+  }
+  cpUltimo = n;
+}
+let cpUltimo = null;
+function relogioCampanha() {
+  const fim = Date.parse(CONFIG.CAMPANHA.ate), r = Math.max(0, fim - (Date.now() + desvio));
+  const h = Math.floor(r / 3600e3), m = Math.floor((r % 3600e3) / 60e3), s = Math.floor((r % 60e3) / 1e3);
+  $("#cpRelogio").textContent = `${h}h ${String(m).padStart(2, "0")}min ${String(s).padStart(2, "0")}s`;
+  if (!visivel(atual)) mostrar(atual + 1);
+  else document.querySelectorAll("#nav button").forEach((b, k) => { b.hidden = !visivel(k); });
+}
+
 function renderSquads(d) {
   // Pastas enviadas para validação: 1ª entrada do negócio na etapa "Validação pasta", sem as reprovadas, contra a meta do squad.
   const sq = d.squads || {}, dias = sq.dias || [], eqs = sq.equipes || [];
@@ -732,7 +818,7 @@ async function carregar() {
     store.set("civ_vistos", d.alertas.map((a) => a.id));
     store.set("civ_giros", d.giros.map((g) => String(g.id)));
 
-    renderMarketing(d); renderVendas(d); renderPodio(d); renderSquads(d);
+    renderMarketing(d); renderVendas(d); renderPodio(d); renderSquads(d); renderCampanha(d);
     $("#dot").style.background = "var(--ok)";
     if (novosA.length || novosG.length) comemorar(novosA, novosG);
   } catch (e) {
@@ -832,6 +918,7 @@ $("#btnGirar").onclick = async () => {
 };
 
 desenhaRoda(); if (!voltarDeRecarga()) mostrar(0); requestAnimationFrame(loopRotacao); carregar();
+relogioCampanha(); setInterval(relogioCampanha, 1000);
 // no modo teste, os alertas saem depois do toque em "Toque para iniciar" (antes disso o navegador bloqueia o som)
 if (new URLSearchParams(location.search).get("teste")) {
   const rodar = () => setTimeout(() => window.testar(), 1500);
