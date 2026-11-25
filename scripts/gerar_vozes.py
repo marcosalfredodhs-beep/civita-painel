@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Gera os áudios do painel com a voz pt-BR-AntonioNeural (edge-tts, grátis):
-"Pasta concluída por <nome>!" em web/vozes/, "<nome> vai girar a roleta!" em web/vozes/roleta/ (mesmo nome de arquivo)
+"Pasta concluída por <nome>!" em web/vozes/, "<nome> vai girar a roleta!" em web/vozes/roleta/,
+"Pasta vendida por <nome>!" em web/vozes/vendida/ (mesmo nome de arquivo)
 e "<nome> ganhou <prêmio>!" em web/vozes/premio/<pessoa>/<prêmio>.mp3, um por prêmio de scripts/vozes_premios.json
 (a lista de prêmios ativos da roleta_premios_catalogo; atualizar quando o catálogo mudar).
 
@@ -29,7 +30,7 @@ def slug(nome: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
 
 
-FRASES = {"": "Pasta concluída por {nome}!", "roleta": "{nome} vai girar a roleta!"}
+FRASES = {"": "Pasta concluída por {nome}!", "roleta": "{nome} vai girar a roleta!", "vendida": "Pasta vendida por {nome}!"}
 
 
 def gerar(arquivo: Path, texto: str) -> None:

@@ -815,16 +815,29 @@ function renderPodio(d) {
 // user_id ao arquivo. Quem ainda não tem áudio gravado ouve a voz do próprio navegador.
 let VOZES = {};
 fetch("vozes/index.json", { cache: "no-store" }).then((r) => (r.ok ? r.json() : {})).then((j) => { VOZES = j || {}; }).catch(() => {});
-function falar(texto, arquivo) {
+// voz ~6 dB mais alta que o arquivo (ganho + compressor para não distorcer); só com o áudio do navegador já liberado
+const GANHO_VOZ = 2;
+function reforcarVoz(au) {
+  try {
+    const c = ctx(); if (c.state !== "running") return;
+    const g = c.createGain(); g.gain.value = GANHO_VOZ;
+    const comp = c.createDynamicsCompressor(); comp.threshold.value = -10; comp.ratio.value = 8; comp.attack.value = 0.003; comp.release.value = 0.15;
+    c.createMediaElementSource(au).connect(g).connect(comp).connect(c.destination);
+  } catch (e) {}
+}
+function falar(texto, arquivo, fim) { // fim: chamado quando a fala termina (ou falha)
   if (!somLigado) return;
+  let feito = false; const acabou = () => { if (!feito) { feito = true; fim?.(); } };
+  if (fim) setTimeout(acabou, 8000); // garantia, caso o navegador não avise o fim
   const sintetizar = () => {
-    if (!("speechSynthesis" in window)) return;
-    const u = new SpeechSynthesisUtterance(texto); u.lang = "pt-BR"; u.rate = 1.05;
+    if (!("speechSynthesis" in window)) return acabou();
+    const u = new SpeechSynthesisUtterance(texto); u.lang = "pt-BR"; u.rate = 1.05; u.onend = acabou; u.onerror = acabou;
     const v = speechSynthesis.getVoices().find((x) => /^pt(-|_)BR/i.test(x.lang)); if (v) u.voice = v;
     speechSynthesis.speak(u);
   };
   if (!arquivo) return sintetizar();
-  const au = new Audio(arquivo); au.volume = 1;
+  const au = new Audio(arquivo); au.volume = 1; au.onended = acabou;
+  reforcarVoz(au);
   au.play().catch(sintetizar);
 }
 // "<vendedor> vai girar a roleta!": mesmo nome de arquivo da voz da pasta, na pasta vozes/roleta/
@@ -844,19 +857,30 @@ function falarPasta(a) {
 
 // pasta paga: trecho de música, alternando entre as da lista a cada pasta paga (a vez fica salva no navegador).
 // Se já estiver tocando, não reinicia. Sem o arquivo, toca a fanfarra.
-const MUSICAS = ["sons/pasta-paga-1.mp3", "sons/pasta-paga-2.mp3", "sons/pasta-paga-3.mp3"];
+const MUSICAS = ["sons/pasta-paga-1.mp3", "sons/pasta-paga-2.mp3", "sons/pasta-paga-3.mp3", "sons/pasta-paga-4.mp3"];
+const VOL_MUSICA = 0.55, VOL_MUSICA_FALA = 0.14; // volume normal e volume enquanto a voz fala
 let musica = null;
 function tocarMusica() {
   if (!somLigado) return;
   if (musica && !musica.paused && !musica.ended) return;
   const vez = (+store.get("civ_musica", 0) || 0) % MUSICAS.length; store.set("civ_musica", vez + 1);
-  musica = new Audio(MUSICAS[vez]); musica.volume = 0.9;
+  musica = new Audio(MUSICAS[vez]); musica.volume = VOL_MUSICA;
   musica.play().catch(() => SOM.fanfarra());
 }
-function pararMusica(ms = 800) { // abaixa o volume aos poucos (ex.: antes da voz da roleta)
-  const m = musica; if (!m || m.paused) return;
-  const v0 = m.volume, t0 = performance.now();
-  (function passo() { const k = Math.min(1, (performance.now() - t0) / ms); m.volume = v0 * (1 - k); if (k < 1) requestAnimationFrame(passo); else m.pause(); })();
+let rampa = 0;
+function volumeMusica(alvo, ms, depois) { // muda o volume aos poucos
+  const m = musica; if (!m || m.paused || (m.parando && alvo > 0)) return;
+  const id = ++rampa, v0 = m.volume, t0 = performance.now();
+  (function passo() { if (id !== rampa) return; const k = Math.min(1, (performance.now() - t0) / ms); m.volume = v0 + (alvo - v0) * k; if (k < 1) requestAnimationFrame(passo); else depois?.(); })();
+}
+function pararMusica(ms = 800) { const m = musica; if (!m) return; volumeMusica(0, ms, () => m.pause()); m.parando = true; } // antes da voz da roleta
+// pasta paga: música + "Pasta vendida por <vendedor>!" por cima, com a música mais baixa enquanto a voz fala
+function anunciarVenda(a) {
+  tocarMusica();
+  setTimeout(() => {
+    volumeMusica(VOL_MUSICA_FALA, 350);
+    falar(`Pasta vendida por ${primeiroNome(P(a.uid).nome)}!`, VOZES[a.uid] ? "vozes/vendida/" + VOZES[a.uid] : null, () => volumeMusica(VOL_MUSICA, 900));
+  }, 1300);
 }
 const NIVEL = { doc: 0, primeiro_doc: 1, mql: 0, coleta: 1, finalizada: 2, ofertada: 2, paga: 3, comissao: 2, comissao_paga: 3 };
 function toast(a) {
@@ -869,13 +893,13 @@ function toast(a) {
   // todo alerta novo: som + confete + chuva de cabecinhas do Atos (mais forte nos eventos maiores)
   if (nv === 0) { SOM.ding(); confete(1); cabecinhas(8); } else if (nv === 1) { SOM.chime(); confete(1); cabecinhas(14); }
   else if (nv === 2) { SOM.chime(); confete(2); cabecinhas(22); }
-  else { if (a.tipo === "paga") tocarMusica(); else SOM.fanfarra(); confete(2); cabecinhas(32); }
+  else { if (a.tipo === "paga") anunciarVenda(a); else SOM.fanfarra(); confete(2); cabecinhas(32); }
   if (a.tipo === "finalizada") falarPasta(a);
 }
 async function comemorar(novosAlertas, novosGiros) {
   comemorando = true;
   try {
-    for (const a of novosAlertas.sort((x, y) => new Date(x.ts) - new Date(y.ts))) { toast(a); await new Promise((r) => setTimeout(r, a.tipo === "finalizada" ? 3800 : 1800)); }
+    for (const a of novosAlertas.sort((x, y) => new Date(x.ts) - new Date(y.ts))) { toast(a); await new Promise((r) => setTimeout(r, a.tipo === "finalizada" || a.tipo === "paga" ? 3800 : 1800)); }
     for (const g of novosGiros.sort((x, y) => new Date(x.ts) - new Date(y.ts))) { await girar(g); await new Promise((r) => setTimeout(r, 5000)); }
   } finally { comemorando = false; }
 }
