@@ -334,13 +334,13 @@ td.premio{white-space:nowrap}
       <div class="cp-hero" id="cpHero">
         <div>
           <span class="cp-tag" id="cpTag">Campanha do dia · só hoje</span>
-          <h2 id="cpTitulo">Bateu <em>12 pastas aceitas</em> pelos escritórios hoje, a comissão de todas as pastas dobra</h2>
-          <div class="cp-regra">Conta pasta produzida hoje, ofertada hoje e aceita por um escritório até as 23:59.</div>
+          <h2 id="cpTitulo">Bateu <em>12 pastas ofertadas</em> hoje, a comissão de todas as pastas dobra</h2>
+          <div class="cp-regra">Conta pasta produzida hoje e ofertada a um escritório até as 23:59, mesmo antes do aceite.</div>
           <div class="cp-relogio">Termina em <b class="num" id="cpRelogio">—</b></div>
         </div>
         <div class="cp-placar">
           <div class="cp-num num"><b id="cpAceitas">0</b><span id="cpMeta">/12</span></div>
-          <div class="leg">pastas aceitas pelos escritórios</div>
+          <div class="leg">pastas produzidas e ofertadas hoje</div>
           <div class="cp-blocos" id="cpBlocos"></div>
           <div class="cp-falta" id="cpFalta">—</div>
         </div>
@@ -546,14 +546,14 @@ const PAPEL = { capitao: ["C", "Capitão"], craque: ["★", "Craque"] };
 const nomeSquad = (n, lim = 11) => { const [a, b] = primeiroNome(n).split(" "); return b && a.length + b.length > lim ? `${a} ${b[0]}.` : primeiroNome(n); };
 // ---------- campanha do dia ----------
 function renderCampanha(d) {
-  const c = d.campanha || {}, meta = CONFIG.CAMPANHA.meta, n = c.aceitas || 0, batida = n >= meta;
+  const c = d.campanha || {}, meta = CONFIG.CAMPANHA.meta, n = c.oferta || 0, batida = n >= meta;
   $("#cpValidacao").textContent = int(c.validacao); $("#cpOferta").textContent = int(c.oferta);
-  $("#cpAprovadas").textContent = int(n); $("#cpAceitas").textContent = int(n); $("#cpMeta").textContent = "/" + meta;
+  $("#cpAprovadas").textContent = int(c.aceitas); $("#cpAceitas").textContent = int(n); $("#cpMeta").textContent = "/" + meta;
   $("#cpBlocos").innerHTML = Array.from({ length: meta }, (_, k) => `<i class="${k < n ? "on" : ""}"></i>`).join("");
   $("#cpHero").classList.toggle("batida", batida);
   $("#cpTag").textContent = batida ? "Meta batida · comissão em dobro" : "Campanha do dia · só hoje";
   $("#cpTitulo").innerHTML = batida ? `Meta batida! <em>Comissão em dobro</em> em todas as pastas de hoje`
-    : `Bateu <em>${meta} pastas aceitas</em> pelos escritórios hoje, a comissão de todas as pastas dobra`;
+    : `Bateu <em>${meta} pastas ofertadas</em> hoje, a comissão de todas as pastas dobra`;
   $("#cpFalta").innerHTML = batida ? (n > meta ? `<b>${n - meta}</b> acima da meta` : "Meta completa") : `Faltam <b>${meta - n}</b> ${meta - n === 1 ? "pasta" : "pastas"}`;
   // comemora quando a meta é batida com o painel aberto (de "abaixo da meta" para "meta batida"), uma vez por dia
   const chave = "cp:" + (c.dia || "");
