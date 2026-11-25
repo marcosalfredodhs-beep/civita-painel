@@ -270,6 +270,27 @@ td.premio{white-space:nowrap}
 .aviso{font-size:.8em;color:var(--warn)}
 .kpi .val .aviso{font-size:.3em;font-weight:700;margin-top:.3em}
 .vazio{color:var(--muted);text-align:center;padding:2em}
+/* letra maior para quem lê de longe na TV: textos pequenos sobem ~25%, números grandes ficam como estão */
+.kpi .rot{font-size:1.15em} .kpis.k6 .rot{font-size:1em} .kpi .sec{font-size:1.25em} .meta .txt{font-size:1.05em}
+.painel h2{font-size:1.35em} .painel h2 small{font-size:.75em}
+th{font-size:1em;padding:.5em .7em}
+td{font-size:1.3em;padding:.45em .7em;white-space:nowrap}
+.av{font-size:.8em}
+.ev .tx{font-size:1.15em} .ev .hr{font-size:.95em}
+.etapa .nm{font-size:1.25em} .etapa .cv{font-size:1.1em}
+.pm-lin{font-size:1.12em;padding:.1em .3em}
+.pm-lin.cab{font-size:.85em}
+.roleta-tit p{font-size:1.25em} .roleta-tit small{font-size:1.05em}
+.proximos .lin{font-size:1.25em;padding:.3em 0}
+.sq-nome small{font-size:1em}
+.sq-real small{font-size:.85em}
+.sq th{font-size:.78em;padding:.4em .15em}
+.sq th:first-child{width:38%}
+.sq td{font-size:1.2em;padding:.3em .15em}
+.sq .av{font-size:.55em}
+.sq tr.sub td:first-child small{font-size:.6em}
+.placar .eq{font-size:1.3em} .placar .num{font-size:1.45em}
+.cp-regra{font-size:1.4em} .cp-funil .rot{font-size:1.2em}
 </style>
 </head>
 <body>
@@ -649,7 +670,7 @@ function renderSquads(d) {
         <div class="sq-real ${h != null && h >= e.meta_dia ? "ok" : pos.get(e) === 1 && t ? "lider" : ""}">${h == null ? `<b>${int(t)}</b><span>/${e.meta_semana}</span><small>na semana</small>` : `<b>${int(h)}</b><span>/${e.meta_dia}</span><small>hoje × meta</small>`}</div>
       </div>
       <div class="sq-barra" title="Semana: ${t} de ${e.meta_semana}"><i style="width:${Math.min(100, (t / e.meta_semana) * 100)}%"></i></div>
-      <table><thead><tr><th>Pessoa</th>${dias.map((x) => `<th class="${cls(x)}">${dd(x)}<small>${x === hoje ? "hoje" : sem(x)}</small></th>`).join("")}<th>Total</th><th>Docs</th></tr></thead>
+      <table><thead><tr><th>Pessoa</th>${dias.map((x) => `<th class="${cls(x)}">${dd(x)}<small>${x === hoje ? "hoje" : sem(x)}</small></th>`).join("")}<th>Tot.</th><th>Docs</th></tr></thead>
       <tbody>${e.membros.map((m) => `<tr>
         <td><span class="nome">${avatar({ ...P(m.uid), nome: m.nome })}<span class="tx" title="${esc(m.nome)}">${esc(nomeSquad(m.nome, PAPEL[m.papel] ? 9 : 11))}</span>${PAPEL[m.papel] ? `<span class="papel ${m.papel}" title="${PAPEL[m.papel][1]}">${PAPEL[m.papel][0]}</span>` : ""}</span></td>
         ${m.dias.map((n, i) => `<td class="num ${cls(dias[i])}">${cel(n, dias[i])}</td>`).join("")}
