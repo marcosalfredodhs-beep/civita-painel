@@ -43,7 +43,7 @@ section.tela.on{display:flex;animation:entra .5s ease}
 @keyframes entra{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 
 .kpis{display:grid;gap:1em}
-.kpis.k4{grid-template-columns:repeat(4,1fr)} .kpis.k5{grid-template-columns:repeat(5,1fr)}
+.kpis.k4{grid-template-columns:repeat(4,1fr)} .kpis.k5{grid-template-columns:repeat(5,1fr)} .kpis.k6{grid-template-columns:repeat(6,1fr)} .kpis.k6 .rot{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi{background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:1.04rem;padding:1em 1.2em;position:relative;overflow:hidden}
 .kpi .rot{color:var(--muted);font-weight:700;font-size:.95em;text-transform:uppercase;letter-spacing:.04em}
 .kpi .val{font-size:3.1em;font-weight:800;line-height:1.05;margin-top:.15em}
@@ -311,10 +311,11 @@ td.premio{white-space:nowrap}
 
   <!-- TELA 2 · VENDAS -->
   <section class="tela" data-titulo="Vendas">
-    <div class="kpis k5">
+    <div class="kpis k6">
       <div class="kpi" id="vMql"><div class="rot">SQL</div><div class="val num">—</div><div class="meta"></div></div>
-      <div class="kpi" id="vDocs"><div class="rot">Documentos coletados</div><div class="val num">—</div><div class="meta"></div></div>
+      <div class="kpi" id="vDocs"><div class="rot">Docs coletados</div><div class="val num">—</div><div class="meta"></div></div>
       <div class="kpi" id="vProd"><div class="rot">Em produção</div><div class="val num">—</div><div class="sec">pastas em coleta agora</div></div>
+      <div class="kpi" id="vPastaDoc"><div class="rot">Pastas c/ documento</div><div class="val num">—</div><div class="sec">1º documento na semana</div></div>
       <div class="kpi" id="vProduzidas"><div class="rot">Pastas produzidas</div><div class="val num">—</div><div class="meta"></div></div>
       <div class="kpi laranja" id="vVendidas"><div class="rot">Pastas vendidas</div><div class="val num">—</div><div class="meta"></div></div>
     </div>
@@ -562,6 +563,7 @@ function renderVendas(d) {
   const v = d.vendedores, f = d.funil, soma = (k) => v.reduce((s, x) => s + (+x[k] || 0), 0);
   const M = CONFIG.METAS;
   kpi("vMql", f.coleta); metaBar("vMql", f.coleta, M.sql);
+  kpi("vPastaDoc", f.pastas_com_doc);
   kpi("vDocs", f.docs); metaBar("vDocs", f.docs, M.docs);
   kpi("vProd", f.em_producao);
   kpi("vProduzidas", f.produzidas); metaBar("vProduzidas", f.produzidas, M.produzidas);
@@ -731,7 +733,7 @@ function contagem(g, seg = 10) {
     $("#sortFoto").innerHTML = g.teste ? '<img class="foto" src="atos-cabeca.png" alt="" style="object-fit:contain;background:#fff;padding:.6em">' : avatar(p, "foto");
     $("#sortNome").textContent = g.teste ? "Giro de teste" : primeiroNome(p.nome);
     $("#sortSub").textContent = g.teste ? "🎰 Testando a roleta" : "🎰 Bateu 3 pastas vendidas! Hora da roleta de";
-    $("#sortudo").classList.add("on"); SOM.fanfarra(); confete(1); cabecinhas(16);
+    pararMusica(); $("#sortudo").classList.add("on"); SOM.fanfarra(); confete(1); cabecinhas(16);
     if (!g.teste) setTimeout(() => falarRoleta(g.uid), 900);
     let n = seg;
     const passo = () => {
@@ -840,6 +842,22 @@ function falarPasta(a) {
   setTimeout(() => falar(`Pasta concluída por ${primeiroNome(P(a.uid).nome)}`, VOZES[a.uid] ? "vozes/" + VOZES[a.uid] : null), 700);
 }
 
+// pasta paga: trecho de música, alternando entre as da lista a cada pasta paga (a vez fica salva no navegador).
+// Se já estiver tocando, não reinicia. Sem o arquivo, toca a fanfarra.
+const MUSICAS = ["sons/pasta-paga-1.mp3", "sons/pasta-paga-2.mp3", "sons/pasta-paga-3.mp3"];
+let musica = null;
+function tocarMusica() {
+  if (!somLigado) return;
+  if (musica && !musica.paused && !musica.ended) return;
+  const vez = (+store.get("civ_musica", 0) || 0) % MUSICAS.length; store.set("civ_musica", vez + 1);
+  musica = new Audio(MUSICAS[vez]); musica.volume = 0.9;
+  musica.play().catch(() => SOM.fanfarra());
+}
+function pararMusica(ms = 800) { // abaixa o volume aos poucos (ex.: antes da voz da roleta)
+  const m = musica; if (!m || m.paused) return;
+  const v0 = m.volume, t0 = performance.now();
+  (function passo() { const k = Math.min(1, (performance.now() - t0) / ms); m.volume = v0 * (1 - k); if (k < 1) requestAnimationFrame(passo); else m.pause(); })();
+}
 const NIVEL = { doc: 0, primeiro_doc: 1, mql: 0, coleta: 1, finalizada: 2, ofertada: 2, paga: 3, comissao: 2, comissao_paga: 3 };
 function toast(a) {
   const nv = NIVEL[a.tipo] ?? 0, el = document.createElement("div");
@@ -850,7 +868,8 @@ function toast(a) {
   setTimeout(() => { el.classList.add("sai"); setTimeout(() => el.remove(), 450); }, 9000);
   // todo alerta novo: som + confete + chuva de cabecinhas do Atos (mais forte nos eventos maiores)
   if (nv === 0) { SOM.ding(); confete(1); cabecinhas(8); } else if (nv === 1) { SOM.chime(); confete(1); cabecinhas(14); }
-  else if (nv === 2) { SOM.chime(); confete(2); cabecinhas(22); } else { SOM.fanfarra(); confete(2); cabecinhas(32); }
+  else if (nv === 2) { SOM.chime(); confete(2); cabecinhas(22); }
+  else { if (a.tipo === "paga") tocarMusica(); else SOM.fanfarra(); confete(2); cabecinhas(32); }
   if (a.tipo === "finalizada") falarPasta(a);
 }
 async function comemorar(novosAlertas, novosGiros) {
