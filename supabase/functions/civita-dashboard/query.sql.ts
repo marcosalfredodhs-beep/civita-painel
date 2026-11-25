@@ -168,8 +168,9 @@ giros as (
   group by 1
 ),
 -- ===== Campanha do dia (dia corrente, horário de São Paulo) =====
--- validação: 1ª entrada em "Validação pasta" hoje, sem reprovadas; oferta: 1ª entrada em "Ofertada ao escritório" hoje;
--- aceitas: pastas com aceite do escritório hoje (vw_originacao_ofertas.aceito_em), sem ofertas canceladas.
+-- Só contam pastas produzidas hoje (cp_hoje: 1ª entrada em "Validação pasta" hoje).
+-- validação: essas pastas, sem reprovadas; oferta: delas, as que entraram em "Ofertada ao escritório" hoje;
+-- aceitas: delas, as ofertadas e aceitas pelo escritório hoje (vw_originacao_ofertas), sem ofertas canceladas.
 cp_dia as (
   select (now() at time zone 'America/Sao_Paulo')::date dia,
          ((now() at time zone 'America/Sao_Paulo')::date) at time zone 'America/Sao_Paulo' ini_ts
@@ -178,6 +179,11 @@ cp_dia as (
   from deal_stage_history h, k
   where h.org_id = k.org and h.stage_id in ('4e5aa8f1-6093-4e56-8524-dc101c62a2fc'::uuid, k.ofertada)
   group by 1, 2
+),
+cp_hoje as materialized (
+  select e.deal_id
+  from cp_ent e join deals d on d.id = e.deal_id and d.deleted_at is null, cp_dia
+  where e.stage_id = '4e5aa8f1-6093-4e56-8524-dc101c62a2fc' and e.em >= cp_dia.ini_ts
 ),
 -- ===== Alertas (últimas 48h) =====
 alertas as (
@@ -252,12 +258,12 @@ select json_build_object(
   ),
   'campanha', json_build_object(
     'dia', (select dia from cp_dia),
-    'validacao', (select count(*) from cp_ent e join deals d on d.id = e.deal_id and d.deleted_at is null and d.status is distinct from 'lost', cp_dia
-                  where e.stage_id = '4e5aa8f1-6093-4e56-8524-dc101c62a2fc' and e.em >= cp_dia.ini_ts),
-    'oferta', (select count(*) from cp_ent e join deals d on d.id = e.deal_id and d.deleted_at is null, cp_dia, k
+    'validacao', (select count(*) from cp_hoje h join deals d on d.id = h.deal_id and d.status is distinct from 'lost'),
+    'oferta', (select count(*) from cp_hoje h join cp_ent e on e.deal_id = h.deal_id, cp_dia, k
                where e.stage_id = k.ofertada and e.em >= cp_dia.ini_ts),
-    'aceitas', (select count(distinct o.deal_id) from vw_originacao_ofertas o, cp_dia, k
-                where o.marca_org_id = k.org and o.status <> 'cancelado' and o.aceito_em >= cp_dia.ini_ts)
+    'aceitas', (select count(distinct o.deal_id) from vw_originacao_ofertas o join cp_hoje h on h.deal_id = o.deal_id, cp_dia, k
+                where o.marca_org_id = k.org and o.status <> 'cancelado'
+                  and o.ofertada_em >= cp_dia.ini_ts and o.aceito_em >= cp_dia.ini_ts)
   ),
   'alertas', (select coalesce(json_agg(json_build_object('id', a.id, 'ts', a.ts, 'tipo', a.tipo, 'uid', a.uid, 'detalhe', a.detalhe, 'valor', a.valor) order by a.ts desc), '[]')
               from (select * from alertas order by ts desc limit 60) a),
