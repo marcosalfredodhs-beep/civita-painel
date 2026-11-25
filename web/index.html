@@ -166,7 +166,30 @@ td .nome{display:flex;align-items:center;gap:.7em;font-weight:700}
 @keyframes novo{0%{background:rgba(253,103,23,.6)}100%{background:rgba(255,255,255,.04)}}
 
 /* Pódio e roleta */
-.arena{flex:1;min-height:0;display:grid;grid-template-columns:.72fr 1.78fr .92fr;gap:1.2em}
+.arena{flex:1;min-height:0;display:grid;grid-template-columns:1.9fr .95fr;gap:1.2em}
+.pm{flex:1;min-height:0;display:grid;grid-template-rows:minmax(0,1.32fr) minmax(0,1fr);gap:1em}
+.pm-topo .podio{flex:1;gap:2.2em;padding-bottom:0}
+.pm-topo .degrau{width:25em}
+.pm-topo .degrau.p1 .bloco{height:15.6em} .pm-topo .degrau.p2 .bloco{height:14em} .pm-topo .degrau.p3 .bloco{height:12.6em}
+.pm-topo .degrau{position:relative}
+.pm-topo .degrau .bloco{padding-top:3.1em}
+.pm-topo .degrau .pos{font-size:2.9em;line-height:1}
+.pm-topo .degrau .nm{font-size:1.55em}
+.pm-topo .degrau .vl{font-size:2.3em;margin-top:.1em;line-height:1.1}
+.pm-topo .degrau .sm{font-size:1.15em}
+.coroa{position:absolute;z-index:3;top:-2.7em;left:50%;width:6.2em;transform:translateX(-50%) rotate(-8deg);filter:drop-shadow(0 6px 14px rgba(0,0,0,.45)) drop-shadow(0 0 18px rgba(255,196,0,.45))}
+.pm-topo .degrau .foto{width:9.5em;height:9.5em;margin-bottom:-3em}
+.pm-topo .degrau.p1 .foto{width:11em;height:11em;border-width:5px}
+.pm-topo .degrau span.foto{width:5em !important;height:5em !important;margin-bottom:-1.6em !important}
+.pm-topo .degrau.p1 span.foto{width:5.8em !important;height:5.8em !important}
+.pm-rank{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;grid-template-rows:repeat(var(--linhas,7),auto);gap:0 2.4em;align-content:start}
+.pm-lin{display:grid;grid-template-columns:2.2em minmax(0,1fr) 7.5em 6.5em 7em;align-items:center;gap:.9em;padding:.26em .3em;border-top:1px solid var(--line)}
+.pm-lin.cab{border-top:0;color:var(--muted);font-size:.78em;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding-top:0}
+.pm-lin .ps{font-weight:800;color:var(--muted)}
+.pm-lin .nome{display:flex;align-items:center;gap:.6em;font-weight:700;min-width:0}
+.pm-lin .nome span.tx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pm-lin .n{text-align:right}
+.pm-lin .zero{color:var(--muted)}
 .podio{display:flex;align-items:flex-end;justify-content:center;gap:1em;padding-bottom:.5em}
 .degrau{display:flex;flex-direction:column;align-items:center;width:31%}
 .degrau .foto{width:6.2em;height:6.2em;border-radius:50%;object-fit:cover;border:4px solid #fff;background:var(--dory);display:flex;align-items:center;justify-content:center;font-weight:800;margin-bottom:-2em;z-index:1;position:relative;font-size:1em}
@@ -256,9 +279,10 @@ td.premio{white-space:nowrap}
   <nav id="nav">
     <button data-t="0" class="on">Marketing</button>
     <button data-t="1">Vendas</button>
-    <button data-t="2">Pódio &amp; Roleta</button>
-    <button data-t="3">Squads</button>
-    <button data-t="4" id="navCampanha">Campanha do dia</button>
+    <button data-t="2">Pódio do mês</button>
+    <button data-t="3">Roleta</button>
+    <button data-t="4">Squads</button>
+    <button data-t="5" id="navCampanha">Campanha do dia</button>
   </nav>
   <div class="status">
     <div><span class="dot" id="dot"></span><span id="atualizado">—</span></div>
@@ -303,10 +327,17 @@ td.premio{white-space:nowrap}
     </div>
   </section>
 
-  <!-- TELA 3 · PÓDIO / ROLETA -->
-  <section class="tela" data-titulo="Pódio &amp; Roleta">
+  <!-- TELA 3 · PÓDIO DO MÊS -->
+  <section class="tela" data-titulo="Pódio do mês">
+    <div class="pm">
+      <div class="painel pm-topo"><h2>Pódio do mês <small id="pmMes">pastas vendidas e comissão</small></h2><div class="podio" id="podio"></div></div>
+      <div class="painel"><h2>Ranking geral do mês <small>do 4º lugar em diante</small></h2><div class="pm-rank" id="pmRank"></div></div>
+    </div>
+  </section>
+
+  <!-- TELA 4 · ROLETA (tempo de tela menor: data-rot, em segundos) -->
+  <section class="tela" id="telaRoleta" data-titulo="Roleta da Sorte" data-rot="20">
     <div class="arena">
-      <div class="painel"><h2>Pódio <small>comissão da semana</small></h2><div class="podio" id="podio"></div></div>
       <div class="roleta-box">
         <div class="roleta-tit"><h2>Roleta da Sorte</h2><p>🎯 3 pastas vendidas? É hora de girar! 🔥</p><small>A cada 3 pastas vendidas na semana o vendedor ganha um giro</small></div>
         <div class="roleta-linha">
@@ -325,7 +356,7 @@ td.premio{white-space:nowrap}
     </div>
   </section>
 
-  <!-- TELA 4 · SQUADS -->
+  <!-- TELA 5 · SQUADS -->
   <section class="tela" data-titulo="Pastas enviadas para validação">
     <div class="squads" id="squads"></div>
   </section>
@@ -367,6 +398,7 @@ const CONFIG = {
   KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRocXJ2cXFkb3dmaXVuZmZoY2xqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMzUxNzIsImV4cCI6MjA3MDYxMTE3Mn0.Z6bwZ-5P_0sdbhiyotGeYokS0FJR00fJa-VjIza402s",
   ATUALIZA_MS: (+new URLSearchParams(location.search).get("atualiza") || 300) * 1000, // padrão 5 min
   ROTACAO_MS: (+new URLSearchParams(location.search).get("rotacao") || 30) * 1000,
+  // telas com data-rot (ex.: Roleta = 20 s) ficam esse tempo; as outras, ROTACAO_MS
   // PROVISÓRIO: trocar pela lista real de prêmios da roleta
   // Prêmios da roleta vêm da tabela roleta_premios_catalogo (sorteio feito no banco, em roleta_giros)
   // PROVISÓRIO: metas semanais (null = sem meta). Vão passar a vir do CRM.
@@ -473,15 +505,16 @@ function mostrar(i, dir = 1) {
   $("#tituloTela").innerHTML = telas[atual].dataset.titulo;
 }
 $("#nav").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) mostrar(+b.dataset.t); });
-document.addEventListener("keydown", (e) => { if (/^[1-5]$/.test(e.key)) mostrar(+e.key - 1); if (e.key === "ArrowRight") mostrar(atual + 1); if (e.key === "ArrowLeft") mostrar(atual - 1, -1); });
+document.addEventListener("keydown", (e) => { if (/^[1-6]$/.test(e.key)) mostrar(+e.key - 1); if (e.key === "ArrowRight") mostrar(atual + 1); if (e.key === "ArrowLeft") mostrar(atual - 1, -1); });
 $("#btnPausa").onclick = () => { pausado = !pausado; $("#btnPausa").textContent = pausado ? "▶ Rodar" : "⏸ Pausar"; rotIni = Date.now(); };
 $("#btnSom").onclick = () => { somLigado = !somLigado; store.set("civ_som", somLigado); $("#btnSom").textContent = somLigado ? "🔊 Som ligado" : "🔇 Som desligado"; };
 $("#btnSom").textContent = somLigado ? "🔊 Som ligado" : "🔇 Som desligado";
 $("#btnTela").onclick = () => { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); };
+const tempoTela = (k) => (+telas[k].dataset.rot ? +telas[k].dataset.rot * 1000 : CONFIG.ROTACAO_MS);
 function loopRotacao() {
-  const el = Date.now() - rotIni;
-  $("#barraRot").style.width = pausado || Date.now() < bloqueio ? "0" : Math.min(100, (el / CONFIG.ROTACAO_MS) * 100) + "%";
-  if (!pausado && Date.now() >= bloqueio && el >= CONFIG.ROTACAO_MS) mostrar(atual + 1);
+  const el = Date.now() - rotIni, dur = tempoTela(atual);
+  $("#barraRot").style.width = pausado || Date.now() < bloqueio ? "0" : Math.min(100, (el / dur) * 100) + "%";
+  if (!pausado && Date.now() >= bloqueio && el >= dur) mostrar(atual + 1);
   requestAnimationFrame(loopRotacao);
 }
 $("#ativar").onclick = () => { ctx().resume?.(); $("#ativar").remove(); SOM.ding(); };
@@ -699,6 +732,7 @@ function contagem(g, seg = 10) {
     $("#sortNome").textContent = g.teste ? "Giro de teste" : primeiroNome(p.nome);
     $("#sortSub").textContent = g.teste ? "🎰 Testando a roleta" : "🎰 Bateu 3 pastas vendidas! Hora da roleta de";
     $("#sortudo").classList.add("on"); SOM.fanfarra(); confete(1); cabecinhas(16);
+    if (!g.teste) setTimeout(() => falarRoleta(g.uid), 900);
     let n = seg;
     const passo = () => {
       const el = $("#sortNum");
@@ -712,7 +746,7 @@ function contagem(g, seg = 10) {
   });
 }
 async function girar(g) {
-  mostrar(2); girando = true; bloqueio = Date.now() + 32000;
+  mostrar(telas.indexOf($("#telaRoleta"))); girando = true; bloqueio = Date.now() + 32000;
   await contagem(g);
   return new Promise((ok) => {
     const n = Math.max(1, PREMIOS.length), ang = 360 / n, idx = idxPremio(g);
@@ -736,16 +770,34 @@ async function girar(g) {
     setTimeout(() => {
       vivo = false; girando = false; $("#bruno").classList.remove("balanca"); void $("#bruno").offsetWidth; $("#bruno").classList.add("aponta");
       $("#anuncio").innerHTML = g.teste ? `🎉 Giro de teste: <span style="color:var(--nemo)">${esc(premioDe(g))}</span>!` : `🎉 ${esc(primeiroNome(P(g.uid).nome))} ganhou <span style="color:var(--nemo)">${esc(premioDe(g))}</span>!`;
-      $("#anuncio").classList.add("on"); SOM.premio(); confete(3); cabecinhas(45); ok();
+      $("#anuncio").classList.add("on"); SOM.premio(); confete(3); cabecinhas(45);
+      if (!g.teste) setTimeout(() => falarPremio(g), 1300);
+      ok();
     }, 6200);
   });
 }
+const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const COROA = `<svg class="coroa" viewBox="0 0 120 80" aria-hidden="true"><defs><linearGradient id="ouro" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE680"/><stop offset=".55" stop-color="#FFC21A"/><stop offset="1" stop-color="#E08A00"/></linearGradient></defs>
+  <path d="M10 66 L4 18 L34 42 L60 6 L86 42 L116 18 L110 66 Z" fill="url(#ouro)" stroke="#B86E00" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="9" y="62" width="102" height="13" rx="4" fill="url(#ouro)" stroke="#B86E00" stroke-width="3"/>
+  <circle cx="4" cy="18" r="6" fill="#FFE680" stroke="#B86E00" stroke-width="2.5"/><circle cx="60" cy="6" r="6" fill="#FFE680" stroke="#B86E00" stroke-width="2.5"/><circle cx="116" cy="18" r="6" fill="#FFE680" stroke="#B86E00" stroke-width="2.5"/>
+  <circle cx="60" cy="47" r="7" fill="#FD6717" stroke="#fff" stroke-width="2"/><circle cx="33" cy="54" r="4.5" fill="#0154FC" stroke="#fff" stroke-width="1.5"/><circle cx="87" cy="54" r="4.5" fill="#0154FC" stroke="#fff" stroke-width="1.5"/></svg>`;
 function renderPodio(d) {
-  const ord = [...d.vendedores].sort((a, b) => b.comissao - a.comissao || b.vendidas - a.vendidas || b.produzidas - a.produzidas).slice(0, 3);
-  const pos = [1, 0, 2].filter((i) => ord[i]);
+  // pódio do mês: mais pastas vendidas (e comissão); depois mais produzidas
+  const todos = (d.podio_mes || []).filter((s) => s.vendidas > 0 || s.produzidas > 0), ord = todos.slice(0, 3);
+  const pos = [1, 0, 2].filter((i) => ord[i] && ord[i].vendidas > 0);
+  const mes = new Date(Date.now() + desvio).toLocaleString("en-US", { timeZone: "America/Sao_Paulo", month: "numeric" });
+  $("#pmMes").textContent = `${MESES[+mes - 1]} · pastas vendidas e comissão`;
   $("#podio").innerHTML = pos.map((i) => { const s = ord[i];
-    return `<div class="degrau p${i + 1}">${avatar(s, "foto")}<div class="bloco"><div class="pos">${i + 1}º</div><div class="nm">${esc(primeiroNome(s.nome))}</div>
-      <div class="vl num">${brl(+s.comissao || 0)}</div><div class="sm">${int(s.vendidas)} pasta${s.vendidas == 1 ? "" : "s"} vendida${s.vendidas == 1 ? "" : "s"}</div></div></div>`; }).join("") || `<div class="vazio">Sem comissões nesta semana</div>`;
+    return `<div class="degrau p${i + 1}">${i === 0 ? COROA : ""}${avatar(s, "foto")}<div class="bloco"><div class="pos">${i + 1}º</div><div class="nm">${esc(primeiroNome(s.nome))}</div>
+      <div class="vl num">${brl(+s.comissao || 0)}</div><div class="sm">${int(s.vendidas)} pasta${s.vendidas == 1 ? "" : "s"} vendida${s.vendidas == 1 ? "" : "s"}</div></div></div>`; }).join("") || `<div class="vazio">Nenhuma pasta vendida neste mês</div>`;
+  const resto = todos.slice(pos.length), linhas = Math.max(1, Math.ceil(resto.length / 2));
+  const cab = `<div class="pm-lin cab"><span>#</span><span>Vendedor</span><span class="n">Produzidas</span><span class="n">Vendidas</span><span class="n">Comissão</span></div>`;
+  const lin = (s, k) => `<div class="pm-lin"><span class="ps num">${pos.length + k + 1}º</span><span class="nome">${avatar(s)}<span class="tx" title="${esc(s.nome)}">${esc(nomeSquad(s.nome, 16))}</span></span>
+    <span class="n num">${int(s.produzidas)}</span><span class="n num ${s.vendidas ? "" : "zero"}">${int(s.vendidas)}</span><span class="n num ${s.vendidas ? "" : "zero"}">${s.vendidas ? brl(+s.comissao) : "—"}</span></div>`;
+  $("#pmRank").style.setProperty("--linhas", linhas + 1);
+  $("#pmRank").innerHTML = resto.length ? cab + resto.slice(0, linhas).map(lin).join("") + (resto.length > 1 ? cab : "") + resto.slice(linhas).map((s, k) => lin(s, k + linhas)).join("")
+    : `<div class="vazio" style="grid-column:1/-1">Sem outros vendedores neste mês</div>`;
   $("#tbPremios").innerHTML = d.giros.slice(0, 12).map((g) => `<tr><td><span class="nome">${avatar(P(g.uid))}${esc(primeiroNome(P(g.uid).nome))}</span></td><td class="destaque premio">${esc(premioDe(g))}${g.entregue ? ' <span class="pill">entregue</span>' : ""}</td><td class="num">${g.ts ? hora(g.ts) : "—"}</td></tr>`).join("")
     || `<tr><td colspan="3" class="vazio">Nenhum giro ainda nesta semana</td></tr>`;
   const R = d.rumo || {};
@@ -772,6 +824,17 @@ function falar(texto, arquivo) {
   if (!arquivo) return sintetizar();
   const au = new Audio(arquivo); au.volume = 1;
   au.play().catch(sintetizar);
+}
+// "<vendedor> vai girar a roleta!": mesmo nome de arquivo da voz da pasta, na pasta vozes/roleta/
+function falarRoleta(uid) {
+  falar(`${primeiroNome(P(uid).nome)} vai girar a roleta!`, VOZES[uid] ? "vozes/roleta/" + VOZES[uid] : null);
+}
+// "<vendedor> ganhou <prêmio>!": vozes/premio/<arquivo da pessoa sem .mp3>/<prêmio em slug>.mp3 (scripts/gerar_vozes.py)
+const slugTxt = (t) => String(t || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const premioFalado = (nome) => { const m = String(nome).match(/^R\$\s*([\d.]+)/); return m ? `${m[1]} reais` : "um " + String(nome).toLowerCase(); };
+function falarPremio(g) {
+  const nome = premioDe(g), pessoa = VOZES[g.uid] ? VOZES[g.uid].replace(/\.mp3$/, "") : null;
+  falar(`${primeiroNome(P(g.uid).nome)} ganhou ${premioFalado(nome)}!`, pessoa && g.premio ? `vozes/premio/${pessoa}/${slugTxt(nome)}.mp3` : null);
 }
 function falarPasta(a) {
   setTimeout(() => falar(`Pasta concluída por ${primeiroNome(P(a.uid).nome)}`, VOZES[a.uid] ? "vozes/" + VOZES[a.uid] : null), 700);

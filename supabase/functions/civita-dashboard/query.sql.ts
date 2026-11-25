@@ -156,6 +156,18 @@ sq_prog as (
   join squads_membros m on m.programa_id = sp.id and m.user_id = d.owner_id
   join sq_pes pe on pe.id = m.pessoa_id
 ),
+-- ===== Pódio do mês (mês corrente, horário de São Paulo) =====
+-- Pastas vendidas = pedido_itens pagos no mês; comissão = R$ 80 por pasta vendida; produzidas = entraram em "Ofertada ao escritório" no mês.
+pm as (
+  select (date_trunc('month', now() at time zone 'America/Sao_Paulo')) at time zone 'America/Sao_Paulo' ini_ts
+), podio_mes as (
+  select x.uid, sum(x.prod) produzidas, sum(x.vend) vendidas
+  from (select c.owner_id uid, 1 prod, 0 vend from ent e join cd c on c.id = e.deal_id, k, pm where e.stage_id = k.ofertada and e.em >= pm.ini_ts
+        union all
+        select c.owner_id, 0, 1 from pag join cd c on c.id = pag.deal_id, pm where pag.pago_em >= pm.ini_ts) x
+  where x.uid is not null
+  group by 1
+),
 -- ===== Roleta: tabelas roleta_pastas / roleta_giros (alimentadas por roleta_sincronizar via pg_cron) =====
 giros as (
   select g.id, g.user_id uid, g.ultima_pasta_paga_em ts, g.premio_id, g.premio_nome, g.semana, g.numero, g.entregue
@@ -234,6 +246,9 @@ select json_build_object(
     'em_producao', (select count(*) from cd, k where cd.stage_id = k.coleta)
   ),
   'vendedores', (select coalesce(json_agg(row_to_json(s) order by s.vendidas desc, s.produzidas desc, s.comissao desc, s.sql_vendas desc, s.leads_rec desc), '[]') from sellers s),
+  'podio_mes', (select coalesce(json_agg(json_build_object('uid', m.uid, 'nome', pr.full_name, 'foto', pr.avatar_url, 'produzidas', m.produzidas,
+                 'vendidas', m.vendidas, 'comissao', m.vendidas * 80) order by m.vendidas desc, m.produzidas desc, pr.full_name), '[]')
+                from podio_mes m left join profiles pr on pr.user_id = m.uid),
   'giros', (select coalesce(json_agg(json_build_object('id', g.id, 'uid', g.uid, 'ts', g.ts, 'premio_id', g.premio_id, 'premio', g.premio_nome,
               'semana', g.semana, 'numero', g.numero, 'entregue', g.entregue) order by g.ts desc nulls last), '[]') from giros g),
   'premios', (select coalesce(json_agg(json_build_object('id', c.id, 'nome', c.nome, 'peso', c.peso, 'min', c.pastas_minimas) order by c.ordem, c.nome), '[]')
