@@ -2,6 +2,15 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<script>
+// Aberto direto (fora da moldura tv.html), vai para a moldura. A moldura fica em tela cheia e só o
+// painel dentro dela recarrega quando sai versão nova, então a tela cheia não cai na atualização.
+// ?direto=1 abre o painel sem moldura.
+if (window.top === window && !/[?&]direto=1/.test(location.search)) {
+  location.replace("tv.html" + location.search + location.hash);
+  document.write('<plaintext style="display:none">');
+}
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Civita Auxílio · Painel</title>
 <link rel="icon" href="simbolo.png">
@@ -540,7 +549,10 @@ document.addEventListener("keydown", (e) => { if (/^[1-6]$/.test(e.key)) mostrar
 $("#btnPausa").onclick = () => { pausado = !pausado; $("#btnPausa").textContent = pausado ? "▶ Rodar" : "⏸ Pausar"; rotIni = Date.now(); };
 $("#btnSom").onclick = () => { somLigado = !somLigado; store.set("civ_som", somLigado); $("#btnSom").textContent = somLigado ? "🔊 Som ligado" : "🔇 Som desligado"; };
 $("#btnSom").textContent = somLigado ? "🔊 Som ligado" : "🔇 Som desligado";
-$("#btnTela").onclick = () => { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); };
+// a tela cheia é da moldura (janela de cima), que não recarrega; aberto sem moldura, é da própria página
+const docTela = () => { try { return window.top.document; } catch { return document; } };
+const telaCheia = () => { const d = docTela(); if (!d.fullscreenElement) d.documentElement.requestFullscreen?.().catch(() => {}); };
+$("#btnTela").onclick = () => { const d = docTela(); if (d.fullscreenElement) d.exitFullscreen?.(); else telaCheia(); };
 const tempoTela = (k) => (+telas[k].dataset.rot ? +telas[k].dataset.rot * 1000 : CONFIG.ROTACAO_MS);
 function loopRotacao() {
   const el = Date.now() - rotIni, dur = tempoTela(atual);
@@ -548,7 +560,7 @@ function loopRotacao() {
   if (!pausado && Date.now() >= bloqueio && el >= dur) mostrar(atual + 1);
   requestAnimationFrame(loopRotacao);
 }
-$("#ativar").onclick = () => { ctx().resume?.(); $("#ativar").remove(); SOM.ding(); };
+$("#ativar").onclick = () => { ctx().resume?.(); telaCheia(); $("#ativar").remove(); SOM.ding(); };
 
 // ---------- contagem animada ----------
 function anima(el, para, fmt) {
@@ -1005,7 +1017,7 @@ function lerRecarga() { try { return JSON.parse(sessionStorage.getItem(RECARGA))
 function recarregar() {
   const ant = lerRecarga();
   if (ant && Date.now() - ant.em < 10 * 60e3) return false; // no máximo 1 recarga a cada 10 min
-  try { sessionStorage.setItem(RECARGA, JSON.stringify({ em: Date.now(), tela: atual, pausado, cheia: !!document.fullscreenElement })); } catch { return false; }
+  try { sessionStorage.setItem(RECARGA, JSON.stringify({ em: Date.now(), tela: atual, pausado, cheia: !!docTela().fullscreenElement })); } catch { return false; }
   location.reload();
   return true;
 }
@@ -1019,7 +1031,7 @@ function voltarDeRecarga() {
   // se o navegador não deixou o som voltar sozinho (ou a tela cheia caiu), mostra um aviso discreto
   setTimeout(() => {
     const semSom = somLigado && audio && audio.state !== "running";
-    const semTela = r.cheia && !document.fullscreenElement;
+    const semTela = r.cheia && !docTela().fullscreenElement;
     if (!semSom && !semTela) return;
     const av = document.createElement("div");
     av.id = "avisoToque";
@@ -1027,7 +1039,7 @@ function voltarDeRecarga() {
     document.body.append(av);
     document.addEventListener("click", () => {
       ctx().resume?.();
-      if (semTela) document.documentElement.requestFullscreen?.().catch(() => {});
+      if (semTela) telaCheia();
       av.remove();
     }, { once: true });
   }, 800);

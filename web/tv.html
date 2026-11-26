@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Civita Auxílio · Painel</title>
+<link rel="icon" href="simbolo.png">
+<style>
+html,body{margin:0;height:100%;background:#040e2e;overflow:hidden}
+iframe{display:block;width:100%;height:100%;border:0}
+</style>
+</head>
+<body>
+<!-- Moldura da TV: esta página fica em tela cheia e nunca recarrega. Quando sai versão nova,
+     só o painel aqui dentro recarrega, e a tela cheia continua. -->
+<iframe id="painel" allow="autoplay; fullscreen" title="Painel Civita Auxílio"></iframe>
+<script>
+const f = document.getElementById("painel");
+f.src = "./" + location.search + location.hash;
+// o controle remoto manda as teclas para a janela de cima; repassa para o painel trocar de tela
+addEventListener("keydown", (e) => {
+  try { f.contentDocument.dispatchEvent(new KeyboardEvent("keydown", { key: e.key, code: e.code })); } catch {}
+});
+f.addEventListener("load", () => { try { f.contentWindow.focus(); } catch {} });
+</script>
+</body>
+</html>
