@@ -531,8 +531,20 @@ $("#btnSom").onclick = () => { somLigado = !somLigado; store.set("civ_som", somL
 $("#btnSom").textContent = somLigado ? "🔊 Som ligado" : "🔇 Som desligado";
 // a tela cheia é da moldura (janela de cima), que não recarrega; aberto sem moldura, é da própria página
 const docTela = () => { try { return window.top.document; } catch { return document; } };
-const telaCheia = () => { const d = docTela(); if (!d.fullscreenElement) d.documentElement.requestFullscreen?.().catch(() => {}); };
-$("#btnTela").onclick = () => { const d = docTela(); if (d.fullscreenElement) d.exitFullscreen?.(); else telaCheia(); };
+// Depois que o painel entra em tela cheia nesta aba, se ela cair (recarga, tecla Voltar), qualquer toque ou tecla do
+// controle volta para a tela cheia, como o botão ⛶. Sair pelo botão desliga isso. O navegador só deixa entrar em
+// tela cheia depois de um toque ou tecla, por isso não dá para voltar sem nenhuma ação.
+const CHEIA = "civ_cheia";
+const lembrarCheia = (v) => { try { v ? sessionStorage.setItem(CHEIA, "1") : sessionStorage.removeItem(CHEIA); } catch {} };
+const queriaCheia = () => { try { return sessionStorage.getItem(CHEIA) === "1"; } catch { return false; } };
+const telaCheia = () => { const d = docTela(); if (d.fullscreenElement) return lembrarCheia(true); d.documentElement.requestFullscreen?.().then(() => lembrarCheia(true)).catch(() => {}); };
+$("#btnTela").onclick = () => { const d = docTela(); if (d.fullscreenElement) { lembrarCheia(false); d.exitFullscreen?.(); } else telaCheia(); };
+function voltarCheia(e) {
+  if (!queriaCheia() || docTela().fullscreenElement || e.key === "Escape" || e.target?.closest?.("#btnTela")) return;
+  telaCheia(); $("#avisoToque")?.remove();
+}
+document.addEventListener("click", voltarCheia, true);
+document.addEventListener("keydown", voltarCheia, true);
 const tempoTela = (k) => (+telas[k].dataset.rot ? +telas[k].dataset.rot * 1000 : CONFIG.ROTACAO_MS);
 function loopRotacao() {
   const el = Date.now() - rotIni, dur = tempoTela(atual);

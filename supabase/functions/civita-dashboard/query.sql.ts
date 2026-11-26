@@ -145,6 +145,12 @@ sq_prog as (
   where l.org_id = k.org and l.grupo is not null and l.grupo not in ('Kit Contratos','Outros anexos','Anexos avulsos')
     and l.created_at >= sp.ini_ts and l.created_at < sp.fim_ts
   group by 1, 2
+), sq_apoio as materialized (
+  -- 26/11/2026: pasta cujo cliente veio da Apoio Justo não conta nos squads. A origem não fica marcada no negócio;
+  -- vale o telefone (últimos 8 dígitos) do lead estar na base da org "Apoio Justo - Kateto".
+  select distinct right(regexp_replace(a.phone, '[^0-9]', '', 'g'), 8) tel
+  from leads a
+  where a.org_id = '1bbd937b-a69c-4e34-8a2a-fb00c07bbd93' and length(regexp_replace(a.phone, '[^0-9]', '', 'g')) >= 8
 ), sq_pa as materialized (
   select pe.id pessoa_id, pe.equipe_id, (f.em at time zone 'America/Sao_Paulo')::date dia
   from (select h.deal_id, min(h.entered_at) em
@@ -155,6 +161,8 @@ sq_prog as (
   join deals d on d.id = f.deal_id and d.deleted_at is null and d.status is distinct from 'lost'
   join squads_membros m on m.programa_id = sp.id and m.user_id = d.owner_id
   join sq_pes pe on pe.id = m.pessoa_id
+  left join leads l on l.id = d.lead_id
+  where not exists (select 1 from sq_apoio ap where ap.tel = right(regexp_replace(l.phone, '[^0-9]', '', 'g'), 8))
 ),
 -- ===== Pódio do mês (mês corrente, horário de São Paulo) =====
 -- Pastas vendidas = pedido_itens pagos no mês; comissão = R$ 80 por pasta vendida; produzidas = entraram em "Ofertada ao escritório" no mês.
