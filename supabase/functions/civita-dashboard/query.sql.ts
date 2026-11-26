@@ -52,7 +52,7 @@ with p as (
 ), pf as (
   select deal_id, max(em) em from docs group by 1 having count(*) >= 8
 ), pag as (
-  select pi.id, pi.origem_deal_id deal_id, pi.pago_em, pi.valor
+  select pi.id, pi.origem_deal_id deal_id, pi.pago_em
   from pedido_itens pi join cd on cd.id = pi.origem_deal_id
   where pi.pago_em is not null
 ),
@@ -210,7 +210,8 @@ alertas as (
   union all
   select 'ofertada:'||e.deal_id, e.em, 'ofertada', c.owner_id, null, null from ent e join cd c on c.id = e.deal_id, p, k where e.stage_id = k.ofertada and e.em >= p.alert_ts
   union all
-  select 'paga:'||pag.id, pag.pago_em, 'paga', c.owner_id, null, pag.valor from pag join cd c on c.id = pag.deal_id, p where pag.pago_em >= p.alert_ts
+  -- 26/11/2026: o valor de venda da pasta não sai no JSON público (a tela só mostra "PASTA VENDIDA!").
+  select 'paga:'||pag.id, pag.pago_em, 'paga', c.owner_id, null, null::numeric from pag join cd c on c.id = pag.deal_id, p where pag.pago_em >= p.alert_ts
   union all
   select 'comissao:'||pag.id, pag.pago_em, 'comissao', c.owner_id, null, 80::numeric from pag join cd c on c.id = pag.deal_id, p where pag.pago_em >= p.alert_ts
   union all
