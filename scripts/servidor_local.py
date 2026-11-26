@@ -109,5 +109,17 @@ class Painel(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     porta = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
-    print(f"Painel local em http://127.0.0.1:{porta} (dados da consulta deste checkout)")
-    ThreadingHTTPServer(("127.0.0.1", porta), partial(Painel, directory=str(WEB))).serve_forever()
+    # Escuta no próprio aparelho e, se houver, no IP do Tailscale (rede privada), para abrir de outro
+    # computador ou da TV pelo IP. O IP público não é usado.
+    import subprocess, threading
+    try:
+        ts = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True, timeout=5).stdout.split()
+    except Exception:
+        ts = []
+    enderecos = ["127.0.0.1"] + ts[:1]
+    for i, host in enumerate(enderecos):
+        srv = ThreadingHTTPServer((host, porta), partial(Painel, directory=str(WEB)))
+        print(f"Painel local em http://{host}:{porta} (dados da consulta deste checkout)", flush=True)
+        if i == len(enderecos) - 1:
+            srv.serve_forever()
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
