@@ -271,7 +271,7 @@ td.premio{white-space:nowrap}
 #ativar img{width:7em;background:#fff;border-radius:50%;padding:.8em;margin-bottom:1em}
 #ativar h2{font-size:2em;font-weight:800}
 #ativar p{color:var(--muted);margin-top:.4em}
-#avisoToque{position:fixed;left:50%;bottom:1.2em;transform:translateX(-50%);z-index:100;background:rgba(4,14,46,.92);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:.5em 1.2em;font-size:1em;cursor:pointer}
+#avisoToque{position:fixed;left:50%;bottom:1em;transform:translateX(-50%);z-index:100;background:rgba(4,14,46,.95);border:2px solid #ff7a1a;border-radius:999px;padding:.55em 1.4em;font-size:1.5em;font-weight:600;white-space:nowrap;cursor:pointer}
 .aviso{font-size:.8em;color:var(--warn)}
 .kpi .val .aviso{font-size:.3em;font-weight:700;margin-top:.3em}
 .vazio{color:var(--muted);text-align:center;padding:2em}
@@ -531,20 +531,44 @@ $("#btnSom").onclick = () => { somLigado = !somLigado; store.set("civ_som", somL
 $("#btnSom").textContent = somLigado ? "🔊 Som ligado" : "🔇 Som desligado";
 // a tela cheia é da moldura (janela de cima), que não recarrega; aberto sem moldura, é da própria página
 const docTela = () => { try { return window.top.document; } catch { return document; } };
-// Depois que o painel entra em tela cheia nesta aba, se ela cair (recarga, tecla Voltar), qualquer toque ou tecla do
-// controle volta para a tela cheia, como o botão ⛶. Sair pelo botão desliga isso. O navegador só deixa entrar em
-// tela cheia depois de um toque ou tecla, por isso não dá para voltar sem nenhuma ação.
+// Tela cheia: na TV o painel sempre quer tela cheia; no computador, só depois que alguém aperta o ⛶ nesta aba.
+// Fora da tela cheia, qualquer toque ou tecla do controle (menos Voltar/Esc) entra nela, como o botão ⛶, e um aviso
+// fica na tela até isso acontecer. Sair pelo botão desliga. O navegador só deixa entrar em tela cheia depois de um
+// toque ou tecla, por isso não dá para entrar sem nenhuma ação.
+const NA_TV = /SMART ?TV|Android TV|GoogleTV|BRAVIA|\bTV\b/i.test(navigator.userAgent);
 const CHEIA = "civ_cheia";
-const lembrarCheia = (v) => { try { v ? sessionStorage.setItem(CHEIA, "1") : sessionStorage.removeItem(CHEIA); } catch {} };
-const queriaCheia = () => { try { return sessionStorage.getItem(CHEIA) === "1"; } catch { return false; } };
-const telaCheia = () => { const d = docTela(); if (d.fullscreenElement) return lembrarCheia(true); d.documentElement.requestFullscreen?.().then(() => lembrarCheia(true)).catch(() => {}); };
+let cheiaFalhou = false, somTravado = false, pedindoCheia = false;
+const lembrarCheia = (v) => { try { sessionStorage.setItem(CHEIA, v ? "1" : "0"); } catch {} };
+const queriaCheia = () => { try { const v = sessionStorage.getItem(CHEIA); return v === "1" || (NA_TV && v !== "0"); } catch { return NA_TV; } };
+const telaCheia = () => {
+  const d = docTela();
+  if (d.fullscreenElement) return lembrarCheia(true);
+  if (pedindoCheia) return;
+  pedindoCheia = true;
+  const comGesto = navigator.userActivation ? navigator.userActivation.isActive : true;
+  d.documentElement.requestFullscreen?.().then(() => lembrarCheia(true)).catch(() => { if (comGesto) cheiaFalhou = true; }).finally(() => { pedindoCheia = false; setTimeout(atualizaAviso, 300); });
+};
 $("#btnTela").onclick = () => { const d = docTela(); if (d.fullscreenElement) { lembrarCheia(false); d.exitFullscreen?.(); } else telaCheia(); };
+function atualizaAviso() {
+  const semSom = somTravado && somLigado && audio && audio.state !== "running";
+  const semTela = queriaCheia() && !cheiaFalhou && !docTela().fullscreenElement && !$("#ativar");
+  let av = $("#avisoToque");
+  if (!semSom && !semTela) return av?.remove();
+  if (!av) { av = document.createElement("div"); av.id = "avisoToque"; document.body.append(av); }
+  av.textContent = semSom && semTela ? "Aperte OK no controle ou toque na tela para ligar o som e voltar à tela cheia"
+    : semSom ? "Toque na tela para ligar o som" : "Aperte OK no controle ou toque na tela para voltar à tela cheia";
+}
 function voltarCheia(e) {
-  if (!queriaCheia() || docTela().fullscreenElement || e.key === "Escape" || e.target?.closest?.("#btnTela")) return;
-  telaCheia(); $("#avisoToque")?.remove();
+  if (e.key === "Escape" || e.target?.closest?.("#btnTela, #ativar")) return;
+  if (e.type === "keydown" && $("#ativar")) return $("#ativar").click(); // o controle também libera a tela inicial
+  try { ctx().resume?.(); } catch {}
+  if (queriaCheia() && !docTela().fullscreenElement) telaCheia();
+  setTimeout(atualizaAviso, 300);
 }
 document.addEventListener("click", voltarCheia, true);
 document.addEventListener("keydown", voltarCheia, true);
+try { docTela().addEventListener("fullscreenchange", atualizaAviso); } catch {}
+setInterval(atualizaAviso, 3000);
 const tempoTela = (k) => (+telas[k].dataset.rot ? +telas[k].dataset.rot * 1000 : CONFIG.ROTACAO_MS);
 function loopRotacao() {
   const el = Date.now() - rotIni, dur = tempoTela(atual);
@@ -1030,21 +1054,10 @@ function voltarDeRecarga() {
   if (r.pausado) $("#btnPausa").click();
   $("#ativar")?.remove();
   try { ctx().resume?.(); } catch {}
-  // se o navegador não deixou o som voltar sozinho (ou a tela cheia caiu), mostra um aviso discreto
-  setTimeout(() => {
-    const semSom = somLigado && audio && audio.state !== "running";
-    const semTela = r.cheia && !docTela().fullscreenElement;
-    if (!semSom && !semTela) return;
-    const av = document.createElement("div");
-    av.id = "avisoToque";
-    av.textContent = semSom && semTela ? "Toque na tela para ligar o som e voltar à tela cheia" : semSom ? "Toque na tela para ligar o som" : "Toque na tela para voltar à tela cheia";
-    document.body.append(av);
-    document.addEventListener("click", () => {
-      ctx().resume?.();
-      if (semTela) telaCheia();
-      av.remove();
-    }, { once: true });
-  }, 800);
+  // se o navegador não deixou o som voltar sozinho (ou a tela cheia caiu), o aviso discreto pede um toque
+  if (r.cheia) lembrarCheia(true);
+  somTravado = true;
+  setTimeout(atualizaAviso, 800);
   return true;
 }
 
