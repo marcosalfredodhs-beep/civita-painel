@@ -290,7 +290,8 @@ select json_build_object(
   ),
   'campanha', json_build_object(
     'dia', (select dia from cp_dia),
-    'validacao', (select count(*) from cp_hoje h join deals d on d.id = h.deal_id and d.status is distinct from 'lost'),
+    -- validação: tira só as pastas perdidas que nunca foram ofertadas (reprovadas); perdida depois da oferta continua contando
+    'validacao', (select count(*) from cp_hoje h join deals d on d.id = h.deal_id and (d.status is distinct from 'lost' or exists (select 1 from cp_ent o, k where o.deal_id = d.id and o.stage_id = k.ofertada))),
     'oferta', (select count(*) from cp_ent e join deals d on d.id = e.deal_id and d.deleted_at is null, cp_dia, k
                where e.stage_id = k.ofertada and e.em >= cp_dia.ini_ts),
     'pagas', (select count(*) from pag, cp_dia where pag.pago_em >= cp_dia.ini_ts),
@@ -300,7 +301,7 @@ select json_build_object(
   ),
   'mes', json_build_object(
     'ini', (select ini from cm),
-    'validacao', (select count(*) from cp_ent e join deals d on d.id = e.deal_id and d.deleted_at is null and d.status is distinct from 'lost', cm
+    'validacao', (select count(*) from cp_ent e join deals d on d.id = e.deal_id and d.deleted_at is null and (d.status is distinct from 'lost' or exists (select 1 from cp_ent o, k where o.deal_id = d.id and o.stage_id = k.ofertada)), cm
                   where e.stage_id = '4e5aa8f1-6093-4e56-8524-dc101c62a2fc' and e.em >= cm.ini_ts),
     'oferta', (select count(*) from cp_ent e join deals d on d.id = e.deal_id and d.deleted_at is null, cm, k
                where e.stage_id = k.ofertada and e.em >= cm.ini_ts),
