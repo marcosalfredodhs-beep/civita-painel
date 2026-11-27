@@ -158,7 +158,10 @@ sq_prog as (
         where h.org_id = k.org and s.pipeline_id = sp.pipeline_id and s.name = 'Validação pasta'
         group by 1) f
   join sq_prog sp on f.em >= sp.ini_ts and f.em < sp.fim_ts
+  -- só pastas aprovadas e vivas: passaram da validação, chegaram a ser ofertadas e não foram perdidas.
+  -- Contam no dia em que entraram em validação.
   join deals d on d.id = f.deal_id and d.deleted_at is null and d.status is distinct from 'lost'
+   and exists (select 1 from deal_stage_history o, k where o.deal_id = d.id and o.stage_id = k.ofertada)
   join squads_membros m on m.programa_id = sp.id and m.user_id = d.owner_id
   join sq_pes pe on pe.id = m.pessoa_id
   left join leads l on l.id = d.lead_id

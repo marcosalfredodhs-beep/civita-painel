@@ -394,7 +394,7 @@ td{font-size:1.5em;padding:.38em .6em;white-space:nowrap}
   </section>
 
   <!-- TELA 5 · SQUADS -->
-  <section class="tela" data-titulo="Pastas enviadas para validação">
+  <section class="tela" data-titulo="Pastas aprovadas na validação">
     <div class="squads" id="squads"></div>
   </section>
   <!-- TELA 5 · META DO DIA (metas em CONFIG.META_DIA, contagem do dia em São Paulo) -->
@@ -767,7 +767,7 @@ function relogioMeta() {
 }
 
 function renderSquads(d) {
-  // Pastas enviadas para validação: 1ª entrada do negócio na etapa "Validação pasta", sem as reprovadas, contra a meta do squad.
+  // Pastas aprovadas: negócio que entrou na etapa "Validação pasta", chegou a ser ofertado e não foi perdido. Conta no dia em que entrou em validação.
   const sq = d.squads || {}, dias = sq.dias || [], eqs = sq.equipes || [];
   if (!eqs.length) { $("#squads").innerHTML = `<div class="painel"><h2>Squads <small>nenhum programa de squads cadastrado</small></h2></div>`; return; }
   const hoje = new Date(agora()).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
