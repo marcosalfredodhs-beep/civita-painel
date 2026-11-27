@@ -105,6 +105,15 @@ td .nome{display:flex;align-items:center;gap:.7em;font-weight:700}
 .md-blocos i.on{background:linear-gradient(180deg,#FF8A45,var(--nemo));box-shadow:0 0 12px rgba(253,103,23,.5)}
 .md-col.ok .md-blocos i.on{background:var(--ok);box-shadow:0 0 12px rgba(61,220,151,.5)}
 .md-falta{font-size:1.9em;color:var(--muted)} .md-falta b{color:#fff}
+/* meta do mês: mesma base da meta do dia, com barra de progresso e marca do ritmo (meta até hoje) */
+.mm .md-num b{font-size:10em} .mm .md-num span{font-size:4em}
+.mm-barra{position:relative;height:2.4em;border-radius:.4rem;background:rgba(255,255,255,.1);margin:1.4em 0 3em}
+.mm-barra>i{position:absolute;left:0;top:0;bottom:0;border-radius:.4rem;background:linear-gradient(180deg,#FF8A45,var(--nemo));box-shadow:0 0 12px rgba(253,103,23,.5)}
+.md-col.ok .mm-barra>i{background:var(--ok);box-shadow:0 0 12px rgba(61,220,151,.5)}
+.mm-marca{position:absolute;top:-.45em;bottom:-.45em;width:4px;margin-left:-2px;background:#fff;border-radius:2px}
+.mm-marca span{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:.35em;white-space:nowrap;font-size:1.35em;color:var(--muted)}
+.mm-marca.dir span{left:auto;right:0;transform:none} .mm-marca.esq span{left:0;transform:none}
+.mm-ritmo{font-size:2em;font-weight:700;margin-bottom:.3em} .mm-ritmo.frente{color:var(--ok)} .mm-ritmo.atras{color:#FF8A45}
 .squads{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,minmax(0,1fr));gap:1em}
 .sq{padding:.7em .8em}
 .sq h2{margin:0}
@@ -309,6 +318,7 @@ td{font-size:1.5em;padding:.38em .6em;white-space:nowrap}
     <button data-t="3">Roleta</button>
     <button data-t="4">Squads</button>
     <button data-t="5">Meta do dia</button>
+    <button data-t="6">Meta do mês</button>
   </nav>
   <div class="status">
     <div><span class="dot" id="dot"></span><span id="atualizado">—</span></div>
@@ -397,6 +407,16 @@ td{font-size:1.5em;padding:.38em .6em;white-space:nowrap}
       <div class="md-cols" id="mdCols"></div>
     </div>
   </section>
+  <!-- TELA 6 · META DO MÊS (meta do dia × dias úteis do mês, contagem do mês em São Paulo) -->
+  <section class="tela" id="telaMes" data-titulo="Meta do mês">
+    <div class="md mm">
+      <div class="md-topo">
+        <div><span class="md-tag" id="mmTag">Meta do mês</span><span class="md-resumo" id="mmResumo">—</span></div>
+        <div class="md-relogio" id="mmDias">—</div>
+      </div>
+      <div class="md-cols" id="mmCols"></div>
+    </div>
+  </section>
 </main>
 
 <div id="toasts"></div>
@@ -417,6 +437,7 @@ const CONFIG = {
   // PROVISÓRIO: metas semanais (null = sem meta). Vão passar a vir do CRM.
   METAS: { sql: null, docs: null, produzidas: null, vendidas: null },
   // PROVISÓRIO: meta do dia (aba Meta do dia). Troque os números quando a meta mudar.
+  // A meta do mês (aba Meta do mês) é esta meta vezes os dias úteis do mês (seg a sex, sem feriados nacionais).
   META_DIA: { validacao: 14, oferta: 12, pagas: 10 },
 };
 // =================================================
@@ -525,7 +546,7 @@ function ajustaTitulo() {
 }
 addEventListener("resize", ajustaTitulo);
 $("#nav").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) mostrar(+b.dataset.t); });
-document.addEventListener("keydown", (e) => { if (/^[1-6]$/.test(e.key)) mostrar(+e.key - 1); if (e.key === "ArrowRight") mostrar(atual + 1); if (e.key === "ArrowLeft") mostrar(atual - 1, -1); });
+document.addEventListener("keydown", (e) => { if (/^[1-7]$/.test(e.key)) mostrar(+e.key - 1); if (e.key === "ArrowRight") mostrar(atual + 1); if (e.key === "ArrowLeft") mostrar(atual - 1, -1); });
 $("#btnPausa").onclick = () => { pausado = !pausado; $("#btnPausa").textContent = pausado ? "▶ Rodar" : "⏸ Pausar"; rotIni = Date.now(); };
 $("#btnSom").onclick = () => { somLigado = !somLigado; store.set("civ_som", somLigado); $("#btnSom").textContent = somLigado ? "🔊 Som ligado" : "🔇 Som desligado"; };
 $("#btnSom").textContent = somLigado ? "🔊 Som ligado" : "🔇 Som desligado";
@@ -671,6 +692,71 @@ function renderMetaDia(d) {
       SOM.premio(); confete(3); setTimeout(() => falar(`Meta do dia batida: ${meta} pastas ${rot.toLowerCase()}!`), 900);
     }
     mdUltimo[k] = n;
+  }
+}
+// ---------- meta do mês ----------
+// Mesmas contagens da meta do dia, somadas desde o início do mês (d.mes.ini; em nov/2026, desde 23/11). Meta = CONFIG.META_DIA × dias úteis do período.
+// Dia útil: segunda a sexta, menos os feriados nacionais (Carnaval e Corpus Christi são ponto facultativo e contam como úteis).
+const METAS_MES = [
+  ["validacao", "Enviadas para validação", "pastas que entraram em validação no mês"],
+  ["oferta", "Ofertadas", "pastas ofertadas a escritórios no mês"],
+  ["pagas", "Pagas", "pastas pagas no mês"],
+];
+function diasUteis(ano, m0) {
+  // Páscoa (algoritmo de Gauss/Meeus) para achar a Sexta-feira Santa
+  const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25),
+    g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4,
+    l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451),
+    pm = Math.floor((h + l - 7 * m + 114) / 31), pd = ((h + l - 7 * m + 114) % 31) + 1;
+  const sexta = Date.UTC(ano, pm - 1, pd - 2);
+  const fixos = ["01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "11-20", "12-25"];
+  const out = [];
+  for (let dia = 1; dia <= 31; dia++) {
+    const t = Date.UTC(ano, m0, dia), dt = new Date(t);
+    if (dt.getUTCMonth() !== m0) break;
+    const w = dt.getUTCDay(), md = String(m0 + 1).padStart(2, "0") + "-" + String(dia).padStart(2, "0");
+    if (w !== 0 && w !== 6 && !fixos.includes(md) && t !== sexta) out.push(dia);
+  }
+  return out;
+}
+const mmUltimo = {};
+function renderMetaMes(d) {
+  const c = d.mes || {}, tela = telas.indexOf($("#telaMes"));
+  const hoje = new Date(Date.now() + desvio + BRT), dia = hoje.getUTCDate(), m0 = hoje.getUTCMonth();
+  // início da contagem vem do banco: dia 1, ou depois dele no mês em que as metas começaram
+  const ini = /^\d{4}-\d{2}-\d{2}$/.test(c.ini || "") && +c.ini.slice(5, 7) === m0 + 1 ? +c.ini.slice(8, 10) : 1;
+  const uteis = diasUteis(hoje.getUTCFullYear(), m0).filter((x) => x >= ini), total = uteis.length;
+  const ateHoje = uteis.filter((x) => x <= dia).length, restam = uteis.filter((x) => x >= dia).length;
+  let batidas = 0;
+  $("#mmCols").innerHTML = METAS_MES.map(([k, rot, desc]) => {
+    const meta = CONFIG.META_DIA[k] * total, n = c[k] || 0, ok = n >= meta;
+    const esperado = CONFIG.META_DIA[k] * ateHoje, dif = n - esperado;
+    if (ok) batidas++;
+    const porDia = Math.ceil((meta - n) / Math.max(1, restam));
+    const falta = ok ? (n > meta ? `<b>${int(n - meta)}</b> acima da meta` : "Meta batida")
+      : `Faltam <b>${int(meta - n)}</b> · <b>${int(porDia)}</b> por dia útil`;
+    const ritmo = ok ? "" : dif === 0 ? `<div class="mm-ritmo frente">No ritmo da meta</div>` : dif > 0 ? `<div class="mm-ritmo frente">${int(dif)} à frente do ritmo</div>`
+      : `<div class="mm-ritmo atras">${int(-dif)} atrás do ritmo</div>`;
+    return `<div class="md-col${ok ? " ok" : ""}"><div class="md-rot">${rot}</div><div class="md-desc">${desc}</div>
+      <div class="md-num num"><b>${int(n)}</b><span>/${int(meta)}</span></div>
+      <div class="mm-barra"><i style="width:${Math.min(100, (n / meta) * 100)}%"></i>
+        <div class="mm-marca${esperado / meta > .75 ? " dir" : esperado / meta < .25 ? " esq" : ""}" style="left:${Math.min(100, (esperado / meta) * 100)}%"><span>meta até hoje: ${int(esperado)}</span></div></div>
+      ${ritmo}<div class="md-falta">${falta}</div></div>`;
+  }).join("");
+  $("#mmTag").classList.toggle("ok", batidas === METAS_MES.length);
+  $("#mmTag").textContent = (batidas === METAS_MES.length ? "Meta do mês batida · " : "Meta do mês · ") + MESES[m0]
+    + (ini > 1 ? ` · desde ${String(ini).padStart(2, "0")}/${String(m0 + 1).padStart(2, "0")}` : "");
+  $("#mmResumo").textContent = `${batidas} de ${METAS_MES.length} metas batidas`;
+  $("#mmDias").innerHTML = restam ? `${restam === 1 ? "Resta" : "Restam"} <b class="num">${restam}</b> ${restam === 1 ? "dia útil" : "dias úteis"} de ${total}` : "Fim dos dias úteis do mês";
+  // comemora quando uma meta do mês é batida com o painel aberto, uma vez por mês e por meta
+  for (const [k, rot] of METAS_MES) {
+    const meta = CONFIG.META_DIA[k] * total, n = c[k] || 0, chave = "mm:" + (c.ini || "") + ":" + k;
+    if (n >= meta && mmUltimo[k] != null && mmUltimo[k] < meta && store.get("civ_mm_" + k, null) !== chave) {
+      store.set("civ_mm_" + k, chave);
+      mostrar(tela); bloqueio = Date.now() + 15000;
+      SOM.premio(); confete(3); setTimeout(() => falar(`Meta do mês batida: ${meta} pastas ${rot.toLowerCase()}!`), 900);
+    }
+    mmUltimo[k] = n;
   }
 }
 function relogioMeta() {
@@ -996,7 +1082,7 @@ async function carregar() {
     store.set("civ_vistos", d.alertas.map((a) => a.id));
     store.set("civ_giros", d.giros.map((g) => String(g.id)));
 
-    renderMarketing(d); renderVendas(d); renderPodio(d); renderSquads(d); renderMetaDia(d);
+    renderMarketing(d); renderVendas(d); renderPodio(d); renderSquads(d); renderMetaDia(d); renderMetaMes(d);
     $("#dot").style.background = "var(--ok)";
     if (novosA.length || novosG.length) comemorar(novosA, novosG);
   } catch (e) {

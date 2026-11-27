@@ -205,6 +205,14 @@ cp_hoje as materialized (
   from cp_ent e join deals d on d.id = e.deal_id and d.deleted_at is null, cp_dia
   where e.stage_id = '4e5aa8f1-6093-4e56-8524-dc101c62a2fc' and e.em >= cp_dia.ini_ts
 ),
+-- ===== Meta do mês (mês corrente, horário de São Paulo; mesmas regras da Meta do dia) =====
+-- As metas começaram em 23/11/2026: novembro conta só a partir desse dia; os meses seguintes, desde o dia 1.
+cm0 as (
+  select greatest((date_trunc('month', now() at time zone 'America/Sao_Paulo'))::date, date '2026-11-23') ini
+),
+cm as (
+  select ini, ini::timestamp at time zone 'America/Sao_Paulo' ini_ts from cm0
+),
 -- ===== Alertas (últimas 48h) =====
 alertas as (
   select 'doc:'||d.deal_id||':'||d.grupo id, d.em ts, case when d.em = d1.primeiro then 'primeiro_doc' else 'doc' end tipo, c.owner_id uid, d.grupo detalhe, null::numeric valor
@@ -289,6 +297,14 @@ select json_build_object(
     'aceitas', (select count(distinct o.deal_id) from vw_originacao_ofertas o join cp_hoje h on h.deal_id = o.deal_id, cp_dia, k
                 where o.marca_org_id = k.org and o.status <> 'cancelado'
                   and o.ofertada_em >= cp_dia.ini_ts and o.aceito_em >= cp_dia.ini_ts)
+  ),
+  'mes', json_build_object(
+    'ini', (select ini from cm),
+    'validacao', (select count(*) from cp_ent e join deals d on d.id = e.deal_id and d.deleted_at is null and d.status is distinct from 'lost', cm
+                  where e.stage_id = '4e5aa8f1-6093-4e56-8524-dc101c62a2fc' and e.em >= cm.ini_ts),
+    'oferta', (select count(*) from cp_ent e join deals d on d.id = e.deal_id and d.deleted_at is null, cm, k
+               where e.stage_id = k.ofertada and e.em >= cm.ini_ts),
+    'pagas', (select count(*) from pag, cm where pag.pago_em >= cm.ini_ts)
   ),
   'alertas', (select coalesce(json_agg(json_build_object('id', a.id, 'ts', a.ts, 'tipo', a.tipo, 'uid', a.uid, 'detalhe', a.detalhe, 'valor', a.valor) order by a.ts desc), '[]')
               from (select * from alertas order by ts desc limit 60) a),
